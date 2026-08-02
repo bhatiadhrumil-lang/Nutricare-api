@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const multer = require('multer');
+const helmet = require('helmet');
+const compression = require('compression');
 
 const reportRoutes = require('./routes/report.routes');
 const chatRoutes = require('./routes/chat.routes');
@@ -11,6 +13,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // ─── Middleware ────────────────────────────────────────────
+app.use(helmet());
+app.use(compression());
 app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:5174'],
   methods: ['GET', 'POST'],
@@ -33,9 +37,15 @@ app.get('/api/health', (_req, res) => {
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(413).json({ error: 'File too large. Maximum size is 15MB.' });
+      return res.status(413).json({
+        success: false,
+        message: 'File size must not exceed 15 MB.',
+      });
     }
-    return res.status(400).json({ error: `Upload error: ${err.message}` });
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid file upload.',
+    });
   }
   if (err) {
     console.error('[Server Error]', err);

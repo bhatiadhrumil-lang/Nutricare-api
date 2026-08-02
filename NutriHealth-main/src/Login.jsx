@@ -430,9 +430,9 @@ export default function Login() {
                     Remember me
                   </span>
                 </label>
-                <a href="#" className="text-teal-600 hover:text-teal-500 transition-colors font-semibold">
+                <Link to="/forgot-password" className="text-teal-600 hover:text-teal-500 transition-colors font-semibold">
                   Forgot password?
-                </a>
+                </Link>
               </motion.div>
             )}
           </AnimatePresence>

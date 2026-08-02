@@ -10,7 +10,7 @@
  *   }
  */
 
-const { chatWithAssistant } = require('../services/gemini.service');
+const { chatWithAssistant } = require('../services/ai.service');
 
 /**
  * POST /api/chat

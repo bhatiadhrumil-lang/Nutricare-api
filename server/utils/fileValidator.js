@@ -9,7 +9,6 @@ const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg',
   'image/jpg',
   'image/png',
-  'image/webp',
 ]);
 
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB
@@ -27,14 +26,14 @@ function validateFile(file) {
   if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
     return {
       valid: false,
-      error: `Unsupported file type: "${file.mimetype}". Please upload a PDF, PNG, JPG, or WebP file.`,
+      error: 'Only PDF, PNG, JPG, and JPEG files are allowed.',
     };
   }
 
   if (file.size > MAX_FILE_SIZE_BYTES) {
     return {
       valid: false,
-      error: `File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is 15 MB.`,
+      error: 'File size must not exceed 15 MB.',
     };
   }
 

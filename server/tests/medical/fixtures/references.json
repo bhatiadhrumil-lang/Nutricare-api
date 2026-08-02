@@ -1,0 +1,10 @@
+[
+  { "id": "cbc", "raw": "13.0 - 17.0 g/dL" },
+  { "id": "liver", "raw": "<40 U/L" },
+  { "id": "kidney", "raw": "0.6 - 1.3 mg/dL" },
+  { "id": "hormone", "raw": "0.4 to 4.0 mIU/L" },
+  { "id": "urine", "raw": "Non Reactive" },
+  { "id": "tumor-marker", "raw": "≤4.0 ng/mL" },
+  { "id": "ocr-dash", "raw": "4.5 — 11.O 10^3/µL" },
+  { "id": "male-reference", "raw": "Male reference: 13.5 - 17.5 g/dL" }
+]

@@ -32,6 +32,13 @@ export function ReportProvider({ children }) {
     setChatHistory([]);
   };
 
+  const setReportData = (payload) => {
+    if (payload && typeof payload === 'object') {
+      setAnalysisResult(payload);
+      setAnalysisError(null);
+    }
+  };
+
   return (
     <ReportContext.Provider
       value={{
@@ -46,6 +53,7 @@ export function ReportProvider({ children }) {
         chatHistory,
         setChatHistory,
         resetReport,
+        setReportData,
       }}
     >
       {children}

@@ -16,6 +16,7 @@ export default function Dashboard() {
     setAnalysisResult,
     setAnalysisError,
     resetReport,
+    setReportData,
   } = useReport();
 
   const handleDragOver = (e) => {
@@ -54,7 +55,11 @@ export default function Dashboard() {
 
     try {
       const result = await analyzeReport(file);
-      setAnalysisResult(result);
+      if (result && typeof result === 'object') {
+        setReportData(result);
+      } else {
+        throw new Error('The AI service returned an invalid result format.');
+      }
     } catch (err) {
       console.error('[Dashboard] Analysis failed:', err.message);
       setAnalysisError(err.message || 'Analysis failed. Please try again.');

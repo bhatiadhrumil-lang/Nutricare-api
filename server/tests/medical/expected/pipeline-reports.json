@@ -1,0 +1,4 @@
+[
+  { "id": "complete-report", "parameterCount": 3, "unmatchedCount": 0, "fuzzyMatches": 0 },
+  { "id": "partial-report", "parameterCount": 1, "unmatchedCount": 2, "fuzzyMatches": 1 }
+]

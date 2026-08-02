@@ -1,0 +1,7 @@
+{
+  "aliasAccuracy": 1,
+  "valueAccuracy": 1,
+  "referenceAccuracy": 1,
+  "minimumAverageConfidence": 0.7,
+  "maximumProcessingTimeAverageMs": 500
+}

@@ -1,0 +1,11 @@
+[
+  { "parameterId": "hemoglobin" },
+  { "parameterId": "white_blood_cell_count" },
+  { "parameterId": "alanine_aminotransferase" },
+  { "parameterId": "vitamin_d_25_hydroxy" },
+  { "parameterId": "thyroid_stimulating_hormone" },
+  { "parameterId": "ferritin" },
+  { "parameterId": "creatinine" },
+  { "parameterId": "hemoglobin" },
+  { "parameterId": null }
+]

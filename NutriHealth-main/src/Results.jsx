@@ -26,18 +26,33 @@ const STATIC_LIFESTYLE = [
 export default function Results() {
   const { analysisResult, analysisError, uploadedFile } = useReport();
 
-  // Determine whether to use real data or static fallback
-  const hasRealData = !!analysisResult;
+  const hasRealData = !!analysisResult && typeof analysisResult === 'object';
 
-  const bloodParams = hasRealData ? (analysisResult.bloodParameters || []) : STATIC_VALUES;
-  const nutrients   = hasRealData ? (analysisResult.nutrients || [])       : STATIC_NUTRIENTS;
-  const allFoodsEat = hasRealData ? (analysisResult.foodsToEat || [])     : STATIC_FOODS_EAT;
-  const foodsAvoid  = hasRealData ? (analysisResult.foodsToAvoid || [])   : STATIC_FOODS_AVOID;
-  const lifestyle   = hasRealData ? (analysisResult.lifestyle || [])      : STATIC_LIFESTYLE;
-  const summary     = hasRealData ? analysisResult.summary                : 'Overall health baseline is stable, but attention is required regarding your lipid profile and fasting sugar levels.';
-  const disease     = hasRealData ? analysisResult.disease                : 'Lipid & Glycemic Markers';
-  const confidence  = hasRealData ? analysisResult.confidence             : 'High';
-  const disclaimer  = hasRealData ? analysisResult.disclaimer             : null;
+  const bloodParams = hasRealData && Array.isArray(analysisResult.bloodParameters) && analysisResult.bloodParameters.length > 0
+    ? analysisResult.bloodParameters
+    : STATIC_VALUES;
+  const nutrients = hasRealData && Array.isArray(analysisResult.nutrients) && analysisResult.nutrients.length > 0
+    ? analysisResult.nutrients
+    : STATIC_NUTRIENTS;
+  const allFoodsEat = hasRealData && Array.isArray(analysisResult.foodsToEat) && analysisResult.foodsToEat.length > 0
+    ? analysisResult.foodsToEat
+    : STATIC_FOODS_EAT;
+  const foodsAvoid = hasRealData && Array.isArray(analysisResult.foodsToAvoid) && analysisResult.foodsToAvoid.length > 0
+    ? analysisResult.foodsToAvoid
+    : STATIC_FOODS_AVOID;
+  const lifestyle = hasRealData && Array.isArray(analysisResult.lifestyle) && analysisResult.lifestyle.length > 0
+    ? analysisResult.lifestyle
+    : STATIC_LIFESTYLE;
+  const summary = hasRealData && analysisResult.summary
+    ? analysisResult.summary
+    : 'Overall health baseline is stable, but attention is required regarding your lipid profile and fasting sugar levels.';
+  const disease = hasRealData && analysisResult.disease
+    ? analysisResult.disease
+    : 'Lipid & Glycemic Markers';
+  const confidence = hasRealData && analysisResult.confidence
+    ? analysisResult.confidence
+    : 'High';
+  const disclaimer = hasRealData && analysisResult.disclaimer ? analysisResult.disclaimer : null;
 
   return (
     <div className="w-full space-y-6">

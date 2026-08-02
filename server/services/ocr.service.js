@@ -4,7 +4,7 @@
  *
  * Current support:
  *   - PDF  → pdf-parse (fully working, no API needed)
- *   - Image (PNG/JPG/WebP) → returns file path for Gemini Vision (handled in gemini.service.js)
+ *   - Image (PNG/JPG/WebP) → returns file path for Gemini Vision (handled in ai.service.js)
  *
  * To swap OCR later: replace extractTextFromImage() with Tesseract.js
  * or Google Cloud Vision API call — the interface stays the same.
@@ -12,6 +12,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { createWorker } = require('tesseract.js');
 
 /**
  * Extracts text from a PDF file using pdf-parse.
@@ -33,8 +34,16 @@ async function extractTextFromPdf(filePath) {
  * @param {string} mimeType
  * @returns {{ isImage: true, filePath: string, mimeType: string }}
  */
-function extractTextFromImage(filePath, mimeType) {
-  return { isImage: true, filePath, mimeType };
+async function extractTextFromImage(filePath, mimeType) {
+  try {
+    const worker = await createWorker('eng');
+    const { data } = await worker.recognize(filePath);
+    await worker.terminate();
+    return data.text.trim();
+  } catch (error) {
+    console.warn('[OCR] Image OCR failed, falling back to image placeholder:', error.message);
+    return { isImage: true, filePath, mimeType };
+  }
 }
 
 /**
@@ -48,7 +57,7 @@ async function extractText(filePath, mimeType) {
     return extractTextFromPdf(filePath);
   }
 
-  // For all image types, delegate to Gemini Vision
+  // For all image types, perform OCR locally and use the extracted text when possible.
   if (mimeType.startsWith('image/')) {
     return extractTextFromImage(filePath, mimeType);
   }

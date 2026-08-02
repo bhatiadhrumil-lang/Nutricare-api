@@ -12,6 +12,9 @@ const path = require('path');
 const fs = require('fs');
 const { MAX_FILE_SIZE_BYTES, ALLOWED_MIME_TYPES } = require('../utils/fileValidator');
 const { analyzeReportController } = require('../controllers/report.controller');
+const { authenticateCognitoToken } = require('../middleware/authMiddleware');
+const { validateUpload } = require('../middleware/uploadValidation');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 
 const router = express.Router();
 
@@ -45,7 +48,26 @@ const upload = multer({
   fileFilter,
 });
 
+const uploadRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.sub || ipKeyGenerator(req.ip),
+  handler: (_req, res) => res.status(429).json({
+    success: false,
+    message: 'Too many upload requests. Please try again later.',
+  }),
+});
+
 // ── Route ────────────────────────────────────────────────────
-router.post('/analyze-report', upload.single('report'), analyzeReportController);
+router.post(
+  '/analyze-report',
+  authenticateCognitoToken,
+  uploadRateLimit,
+  upload.single('report'),
+  validateUpload,
+  analyzeReportController,
+);
 
 module.exports = router;

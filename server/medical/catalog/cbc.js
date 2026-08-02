@@ -1,0 +1,25 @@
+import { CATEGORIES } from '../categories.js';
+
+/** Complete blood count parameters. */
+export default [
+  { id: 'hemoglobin', displayName: 'Hemoglobin', aliases: ['Hb', 'HGB', 'Haemoglobin'], category: CATEGORIES.CBC, units: ['g/dL', 'g/L'], datatype: 'number', description: 'Concentration of hemoglobin in blood.' },
+  { id: 'hematocrit', displayName: 'Hematocrit', aliases: ['Hct', 'PCV', 'Packed Cell Volume'], category: CATEGORIES.CBC, units: ['%', 'L/L'], datatype: 'number', description: 'Proportion of blood volume occupied by red cells.' },
+  { id: 'red_blood_cell_count', displayName: 'Red Blood Cell Count', aliases: ['RBC', 'Erythrocyte Count', 'Red Cell Count'], category: CATEGORIES.CBC, units: ['10^6/µL', '10^12/L'], datatype: 'number', description: 'Count of red blood cells.' },
+  { id: 'white_blood_cell_count', displayName: 'White Blood Cell Count', aliases: ['WBC', 'Leukocyte Count', 'Total Leukocyte Count'], category: CATEGORIES.CBC, units: ['10^3/µL', '10^9/L'], datatype: 'number', description: 'Count of white blood cells.' },
+  { id: 'platelet_count', displayName: 'Platelet Count', aliases: ['PLT', 'Thrombocyte Count'], category: CATEGORIES.CBC, units: ['10^3/µL', '10^9/L'], datatype: 'number', description: 'Count of platelets.' },
+  { id: 'mean_corpuscular_volume', displayName: 'Mean Corpuscular Volume', aliases: ['MCV', 'Mean Cell Volume'], category: CATEGORIES.CBC, units: ['fL'], datatype: 'number', description: 'Average red blood cell volume.' },
+  { id: 'mean_corpuscular_hemoglobin', displayName: 'Mean Corpuscular Hemoglobin', aliases: ['MCH', 'Mean Cell Hemoglobin'], category: CATEGORIES.CBC, units: ['pg'], datatype: 'number', description: 'Average hemoglobin amount per red blood cell.' },
+  { id: 'mean_corpuscular_hemoglobin_concentration', displayName: 'Mean Corpuscular Hemoglobin Concentration', aliases: ['MCHC', 'Mean Cell Hemoglobin Concentration'], category: CATEGORIES.CBC, units: ['g/dL', 'g/L'], datatype: 'number', description: 'Average hemoglobin concentration in red blood cells.' },
+  { id: 'red_cell_distribution_width', displayName: 'Red Cell Distribution Width', aliases: ['RDW', 'RDW-CV', 'Erythrocyte Distribution Width'], category: CATEGORIES.CBC, units: ['%', 'fL'], datatype: 'number', description: 'Variation in red blood cell size.' },
+  { id: 'mean_platelet_volume', displayName: 'Mean Platelet Volume', aliases: ['MPV'], category: CATEGORIES.CBC, units: ['fL'], datatype: 'number', description: 'Average platelet volume.' },
+  { id: 'platelet_distribution_width', displayName: 'Platelet Distribution Width', aliases: ['PDW'], category: CATEGORIES.CBC, units: ['fL', '%'], datatype: 'number', description: 'Variation in platelet size.' },
+  { id: 'plateletcrit', displayName: 'Plateletcrit', aliases: ['PCT', 'Thrombocrit'], category: CATEGORIES.CBC, units: ['%'], datatype: 'number', description: 'Proportion of blood volume occupied by platelets.' },
+  { id: 'neutrophils', displayName: 'Neutrophils', aliases: ['Neutrophil Percentage', 'Neutrophil Count'], category: CATEGORIES.CBC, units: ['%', '10^3/µL', '10^9/L'], datatype: 'number', description: 'Neutrophil measurement.' },
+  { id: 'lymphocytes', displayName: 'Lymphocytes', aliases: ['Lymphocyte Percentage', 'Lymphocyte Count'], category: CATEGORIES.CBC, units: ['%', '10^3/µL', '10^9/L'], datatype: 'number', description: 'Lymphocyte measurement.' },
+  { id: 'monocytes', displayName: 'Monocytes', aliases: ['Monocyte Percentage', 'Monocyte Count'], category: CATEGORIES.CBC, units: ['%', '10^3/µL', '10^9/L'], datatype: 'number', description: 'Monocyte measurement.' },
+  { id: 'eosinophils', displayName: 'Eosinophils', aliases: ['Eosinophil Percentage', 'Eosinophil Count'], category: CATEGORIES.CBC, units: ['%', '10^3/µL', '10^9/L'], datatype: 'number', description: 'Eosinophil measurement.' },
+  { id: 'basophils', displayName: 'Basophils', aliases: ['Basophil Percentage', 'Basophil Count'], category: CATEGORIES.CBC, units: ['%', '10^3/µL', '10^9/L'], datatype: 'number', description: 'Basophil measurement.' },
+  { id: 'immature_granulocytes', displayName: 'Immature Granulocytes', aliases: ['IG', 'Immature Granulocyte Percentage'], category: CATEGORIES.CBC, units: ['%', '10^3/µL'], datatype: 'number', description: 'Immature granulocyte measurement.' },
+  { id: 'nucleated_red_blood_cells', displayName: 'Nucleated Red Blood Cells', aliases: ['NRBC', 'Nucleated RBC'], category: CATEGORIES.CBC, units: ['%', '10^3/µL'], datatype: 'number', description: 'Nucleated red blood cell measurement.' },
+  { id: 'reticulocyte_count', displayName: 'Reticulocyte Count', aliases: ['Retics', 'Reticulocytes'], category: CATEGORIES.CBC, units: ['%', '10^3/µL'], datatype: 'number', description: 'Count of immature red blood cells.' },
+];

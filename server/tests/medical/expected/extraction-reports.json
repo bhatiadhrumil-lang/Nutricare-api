@@ -1,0 +1,36 @@
+[
+  {
+    "id": "standard-ocr-noise",
+    "parameters": [
+      { "parameterId": "hemoglobin", "value": 12.5, "unit": "g/dL", "referenceRange": "13.0 - 17.0" },
+      { "parameterId": "white_blood_cell_count", "value": 12000, "unit": "10^3/µL", "referenceRange": "4.5–11.0" },
+      { "parameterId": "alanine_aminotransferase", "value": 200, "comparator": ">", "unit": "U/L", "referenceRange": "<40" },
+      { "parameterId": "vitamin_d_25_hydroxy", "value": 25, "unit": "ng/mL", "referenceRange": "30 to 100" },
+      { "parameterId": "thyroid_stimulating_hormone", "value": 0.45, "unit": "mIU/L", "referenceRange": "0.4 - 4.0" },
+      { "parameterId": "ferritin", "value": 10, "comparator": "<", "unit": "ng/mL", "referenceRange": "15 - 150" },
+      { "parameterId": "creatinine", "value": 1.2, "unit": "mg/dL", "referenceRange": "0.6 - 1.3" }
+    ],
+    "unmatchedLines": 1
+  },
+  {
+    "id": "multi-column",
+    "parameters": [
+      { "parameterId": "hemoglobin", "value": 13.5, "unit": "g/dL", "referenceRange": "13 - 17" },
+      { "parameterId": "white_blood_cell_count", "value": 7.2, "unit": "10^3/µL", "referenceRange": "4.5–11.0" },
+      { "parameterId": "alanine_aminotransferase", "value": 31, "unit": "U/L", "referenceRange": "0 - 40" }
+    ],
+    "unmatchedLines": 0
+  },
+  {
+    "id": "multi-page",
+    "parameters": [
+      { "parameterId": "hemoglobin", "value": 14.1, "unit": "g/dL" },
+      { "parameterId": "white_blood_cell_count", "value": 6.4, "unit": "10^3/µL" },
+      { "parameterId": "alanine_aminotransferase", "value": 28, "unit": "U/L" },
+      { "parameterId": "thyroid_stimulating_hormone", "value": 1.6, "unit": "mIU/L" },
+      { "parameterId": "creatinine", "value": 0.9, "unit": "mg/dL" },
+      { "parameterId": "ferritin", "value": 55, "unit": "ng/mL" }
+    ],
+    "unmatchedLines": 0
+  }
+]
