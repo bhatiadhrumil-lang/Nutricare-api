@@ -1,0 +1,12 @@
+export const CONSISTENCY_WARNING_CODES = Object.freeze({
+  UNKNOWN_PARAMETER: 'UNKNOWN_PARAMETER',
+  MISSING_PARAMETERS: 'MISSING_PARAMETERS',
+  INVALID_PARAMETER_FORMAT: 'INVALID_PARAMETER_FORMAT',
+  INSUFFICIENT_BIOMARKERS: 'INSUFFICIENT_BIOMARKERS',
+});
+
+export function consistencyWarning(code, message) {
+  return { code, message, level: 'warning' };
+}
+
+export default CONSISTENCY_WARNING_CODES;

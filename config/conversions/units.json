@@ -1,0 +1,64 @@
+{
+  "units": {
+    "blood_glucose": {
+      "mmol/L": 0.0555,
+      "mg/dL": 1.0
+    },
+    "hemoglobin": {
+      "g/dL": 1.0,
+      "mmol/L": 0.6206
+    },
+    "hematocrit": {
+      "percent": 1.0,
+      "L/L": 0.01
+    },
+    "platelets": {
+      "thousands/uL": 1.0,
+      "10^9/L": 1.0
+    },
+    "wbc": {
+      "thousands/uL": 1.0,
+      "10^9/L": 1.0
+    },
+    "rbc": {
+      "million/uL": 1.0,
+      "10^12/L": 1.0
+    },
+    "mcv": {
+      "fL": 1.0,
+      "um3": 1.0
+    },
+    "mch": {
+      "pg": 1.0,
+      "amol": 6.242e10
+    },
+    "mchc": {
+      "g/dL": 1.0,
+      "g/L": 10.0
+    },
+    "cholesterol": {
+      "mg/dL": 1.0,
+      "mmol/L": 0.0259
+    },
+    "hdl": {
+      "mg/dL": 1.0,
+      "mmol/L": 0.0259
+    },
+    "ldl": {
+      "mg/dL": 1.0,
+      "mmol/L": 0.0259
+    },
+    "triglycerides": {
+      "mg/dL": 1.0,
+      "mmol/L": 0.0113
+    },
+    "creatinine": {
+      "mg/dL": 1.0,
+      "umol/L": 88.4
+    },
+    "bun": {
+      "mg/dL": 1.0,
+      "mmol/L": 0.357
+    }
+  }
+}

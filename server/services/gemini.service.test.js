@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { __test } = require('./gemini.service');
+const { __test } = require('./ai.service');
 
 test('parses a signed Bedrock URL from the provided env-style key', () => {
   const signedUrl = 'https://bedrock.amazonaws.com/?Action=CallWithBearerToken&X-Amz-Signature=abc123';
