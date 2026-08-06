@@ -263,16 +263,29 @@ async function callBedrockWithMessages(client, messages, maxTokens = MAX_TOKENS,
   return body.content?.[0]?.text || '';
 }
 
-async function analyzeReport(extractionResult) {
+/**
+ * Analyzes a medical report using Claude (AWS Bedrock).
+ *
+ * When called from the report controller, `extractionResult` is the
+ * pre-formatted AI context string produced by formatContextForClaude().
+ * Claude NEVER receives raw OCR text — only the structured AI context.
+ *
+ * @param {string|object} extractionResult - Formatted AI context string OR image reference object
+ * @param {object|null}   aiContext        - Structured AI context object (for fallback enrichment)
+ */
+async function analyzeReport(extractionResult, aiContext = null) {
   const client = createBedrockClient(process.env.BEDROCK_API_KEY);
   let prompt;
   let messages;
 
   if (typeof extractionResult === 'string') {
+    // extractionResult is the formatted AI context string from formatContextForClaude()
+    // or a legacy plain-text OCR string for backward compatibility.
+    // buildAnalysisPrompt wraps it in the structured Claude prompt.
     prompt = buildAnalysisPrompt(extractionResult);
     messages = [{ role: 'user', content: prompt }];
-  } else if (extractionResult.isImage) {
-    prompt = buildAnalysisPrompt('[Extract all blood test values from the attached image of a blood report]');
+  } else if (extractionResult && extractionResult.isImage) {
+    prompt = buildAnalysisPrompt('[Extract all blood test values from the attached image of a blood report. Return structured JSON analysis.]');
     messages = [
       { role: 'user', content: prompt },
     ];
@@ -285,7 +298,8 @@ async function analyzeReport(extractionResult) {
     rawText = await callBedrockWithMessages(client, messages, MAX_TOKENS, TEMPARATURE);
   } catch (error) {
     console.warn('[AI] Bedrock request failed, using fallback analysis:', error.message);
-    return buildFallbackAnalysis(extractionResult);
+    // Pass aiContext to fallback so it can use structured data if available
+    return buildFallbackAnalysis(aiContext || extractionResult);
   }
 
   const cleanedText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
@@ -295,7 +309,7 @@ async function analyzeReport(extractionResult) {
     parsed = JSON.parse(cleanedText);
   } catch (parseErr) {
     console.error('[AI] Failed to parse JSON. Raw response (first 500 chars):', cleanedText.slice(0, 500));
-    return buildFallbackAnalysis(extractionResult);
+    return buildFallbackAnalysis(aiContext || extractionResult);
   }
 
   if (!parsed.disclaimer) {
