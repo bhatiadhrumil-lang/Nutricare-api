@@ -1,15 +1,58 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Activity, Menu, X, Stethoscope, HeartPulse, MessageSquare, 
   LogOut, UploadCloud, Sparkles, ChevronRight, LayoutDashboard
 } from 'lucide-react';
-import { Link, useLocation, Outlet } from 'react-router-dom';
+import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
+import { useAuth } from './context/AuthContext';
+
+// Auto logout after 5 minutes of inactivity
+const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  // Clear any remaining Cognito/Amplify tokens and redirect to the login page
+  const performLogout = useCallback(async () => {
+    try {
+      await logout();
+    } catch (err) {
+      console.error('[Logout]', err);
+    }
+    // Safety net: remove any persisted auth credentials still sitting in localStorage
+    const authKeys = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key && /cognito|amplify/i.test(key)) {
+        authKeys.push(key);
+      }
+    }
+    authKeys.forEach((key) => localStorage.removeItem(key));
+    navigate('/');
+  }, [logout, navigate]);
+
+  // Auto logout after 5 minutes of inactivity
+  useEffect(() => {
+    let timer = null;
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        void performLogout();
+      }, INACTIVITY_TIMEOUT_MS);
+    };
+    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'wheel', 'touchstart'];
+    events.forEach((evt) => window.addEventListener(evt, resetTimer, { passive: true }));
+    resetTimer();
+    return () => {
+      clearTimeout(timer);
+      events.forEach((evt) => window.removeEventListener(evt, resetTimer));
+    };
+  }, [performLogout]);
 
   // Track window resize
   useEffect(() => {
@@ -120,12 +163,13 @@ export default function Layout() {
                 </div>
               </div>
 
-              <Link to="/">
-                <button className="flex items-center gap-3 w-full p-3 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-all text-sm font-semibold cursor-pointer">
-                  <LogOut className="w-4 h-4 flex-shrink-0" />
-                  <span>Logout</span>
-                </button>
-              </Link>
+              <button
+                onClick={() => void performLogout()}
+                className="flex items-center gap-3 w-full p-3 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-all text-sm font-semibold cursor-pointer"
+              >
+                <LogOut className="w-4 h-4 flex-shrink-0" />
+                <span>Logout</span>
+              </button>
             </div>
           </motion.div>
         )}
