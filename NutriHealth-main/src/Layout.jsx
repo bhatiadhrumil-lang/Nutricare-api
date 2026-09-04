@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Activity, Menu, X, Stethoscope, HeartPulse, MessageSquare, 
-  LogOut, UploadCloud, Sparkles, ChevronRight, LayoutDashboard
+  LogOut, UploadCloud, Sparkles, ChevronRight, LayoutDashboard, User
 } from 'lucide-react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
@@ -82,6 +82,8 @@ export default function Layout() {
       case '/recovery': return 'AI Consultation & Results';
       case '/health-tips': return 'Personalized Health Insights';
       case '/assistant': return 'NutriHealth AI Assistant';
+      case '/account':
+      case '/profile': return 'My Health Profile & Account';
       default: return 'Dashboard';
     }
   };
@@ -149,19 +151,23 @@ export default function Layout() {
               <SidebarItem to="/recovery" icon={<Stethoscope className="w-5 h-5" />} label="AI Consultation" currentPath={location.pathname} />
               <SidebarItem to="/health-tips" icon={<HeartPulse className="w-5 h-5" />} label="Health Insights" currentPath={location.pathname} />
               <SidebarItem to="/assistant" icon={<MessageSquare className="w-5 h-5" />} label="AI Assistant" currentPath={location.pathname} />
+              <SidebarItem to="/account" icon={<User className="w-5 h-5" />} label="My Account" currentPath={location.pathname} />
             </nav>
 
             {/* User Profile / Logout */}
             <div className="px-4 mt-auto w-full overflow-hidden space-y-3">
-              <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center gap-3">
+              <Link 
+                to="/account"
+                className="p-3 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 rounded-2xl flex items-center gap-3 transition-all cursor-pointer group"
+              >
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-400 to-emerald-500 text-white font-bold text-xs flex items-center justify-center shadow-sm">
                   NH
                 </div>
                 <div className="flex-1 truncate">
-                  <p className="text-xs font-bold text-slate-900 truncate">Patient Account</p>
-                  <p className="text-[10px] text-teal-600 font-semibold truncate">Pro Tier Active</p>
+                  <p className="text-xs font-bold text-slate-900 truncate group-hover:text-teal-600 transition-colors">My Health Profile</p>
+                  <p className="text-[10px] text-teal-600 font-semibold truncate">View Account & Preferences</p>
                 </div>
-              </div>
+              </Link>
 
               <button
                 onClick={() => void performLogout()}
@@ -204,6 +210,10 @@ export default function Layout() {
             <Link to="/upload" className="px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-bold border border-teal-200 transition-all flex items-center gap-1.5">
               <LayoutDashboard className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Dashboard</span>
+            </Link>
+            <Link to="/account" className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-200 transition-all flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">My Account</span>
             </Link>
           </div>
         </header>

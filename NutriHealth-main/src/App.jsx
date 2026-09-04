@@ -9,6 +9,7 @@ import Processing from './Processing';
 import Results from './Results';
 import HealthTips from './HealthTips';
 import Assistant from './Assistant';
+import Account from './Account';
 import ForgotPassword from './ForgotPassword';
 import ResetPassword from './ResetPassword';
 
@@ -27,6 +28,8 @@ function App() {
           <Route path="/recovery" element={<Results />} />
           <Route path="/health-tips" element={<HealthTips />} />
           <Route path="/assistant" element={<Assistant />} />
+          <Route path="/account" element={<Account />} />
+          <Route path="/profile" element={<Account />} />
         </Route>
       </Routes>
     </BrowserRouter>

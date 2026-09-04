@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_BYTES } = require('../utils/fileValidator');
 
-const ALLOWED_FILE_EXTENSIONS = new Set(['.pdf', '.png', '.jpg', '.jpeg']);
+const ALLOWED_FILE_EXTENSIONS = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.webp']);
 
 function removeTemporaryFile(file) {
   if (!file?.path) {
@@ -34,7 +34,7 @@ function validateUpload(req, res, next) {
   const extension = path.extname(file.originalname || '').toLowerCase();
 
   if (!ALLOWED_FILE_EXTENSIONS.has(extension) || !ALLOWED_MIME_TYPES.has(file.mimetype)) {
-    return rejectUpload(req, res, 400, 'Only PDF, PNG, JPG, and JPEG files are allowed.');
+    return rejectUpload(req, res, 400, 'Only PDF, PNG, JPG, JPEG, and WebP files are allowed.');
   }
 
   if (file.size > MAX_FILE_SIZE_BYTES) {

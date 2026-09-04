@@ -9,7 +9,7 @@ export function toUnitLookupKey(unit) {
     .normalize('NFKC')
     .replace(/[μµ]/gu, 'u')
     .replace(/[×x]\s*(?=10)/giu, '')
-    .replace(/10\s*(?:e|\*|\^)?\s*([0-9]+)/giu, '10^$1')
+    .replace(/10\s*(?:e|\*|\^|~)?\s*([0-9]+)/giu, '10^$1')
     .replace(/\.(?!\d)/gu, '/')
     .replace(/_/gu, '/')
     .replace(/\/+/gu, '/')

@@ -25,6 +25,8 @@ export const UNIT_ALIAS_TABLE = Object.freeze({
   'pg/ml': 'pg/mL',
   'ng/ml': 'ng/mL',
   'ng/dl': 'ng/dL',
+  'ug/ml': 'µg/mL',
+  'mcg/ml': 'µg/mL',
   'pmol/l': 'pmol/L',
   'nmol/l': 'nmol/L',
   'g/dl': 'g/dL',

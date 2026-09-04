@@ -9,6 +9,7 @@ const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg',
   'image/jpg',
   'image/png',
+  'image/webp',
 ]);
 
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB
@@ -26,7 +27,7 @@ function validateFile(file) {
   if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
     return {
       valid: false,
-      error: 'Only PDF, PNG, JPG, and JPEG files are allowed.',
+      error: 'Only PDF, PNG, JPG, JPEG, and WebP files are allowed.',
     };
   }
 

@@ -29,3 +29,21 @@ test('builds an Anthropic payload with system prompts separated from messages', 
   assert.equal(payload.system, 'You are a helpful nutrition guide.');
   assert.deepEqual(payload.messages, [{ role: 'user', content: 'Give me a summary.' }]);
 });
+
+test('fallback preserves normalized values when Bedrock is unavailable', () => {
+  const result = __test.buildFallbackAnalysis({
+    parameters: [
+      { parameter: 'Fasting Glucose', normalizedValue: 118, normalizedUnit: 'mg/dL', status: 'HIGH' },
+      { parameter: 'LDL Cholesterol', normalizedValue: 142, normalizedUnit: 'mg/dL', status: 'HIGH' },
+    ],
+  });
+
+  assert.equal(result.bloodParameters.length, 2);
+  assert.deepEqual(result.bloodParameters[0], {
+    name: 'Fasting Glucose',
+    value: '118 mg/dL',
+    status: 'high',
+    explanation: 'This Fasting Glucose result is marked high and should be reviewed with a clinician.',
+  });
+  assert.equal(result.disease, 'Lipid profile review');
+});

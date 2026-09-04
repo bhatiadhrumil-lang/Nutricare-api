@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mail, Lock, ArrowRight, Activity, Sparkles, ShieldCheck,
-  Check, HeartPulse, User, UserPlus, AlertCircle
+  Check, HeartPulse, User, UserPlus, AlertCircle, Eye, EyeOff
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
@@ -36,6 +36,8 @@ export default function Login() {
     confirmPassword: ''
   });
   const [errors, setErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Health indicators for form validation
   const healthIndicators = [
@@ -338,12 +340,12 @@ export default function Login() {
                 <Lock className="w-5 h-5" />
               </div>
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 id="password"
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className={`w-full pl-12 pr-4 py-3.5 bg-slate-50 border rounded-2xl focus:outline-none focus:ring-2 transition-all text-sm placeholder:text-slate-400 text-slate-900 ${
+                className={`w-full pl-12 pr-12 py-3.5 bg-slate-50 border rounded-2xl focus:outline-none focus:ring-2 transition-all text-sm placeholder:text-slate-400 text-slate-900 ${
                   errors.password ? 'border-rose-300 focus:ring-rose-500/40' : 'border-slate-200/90 focus:ring-emerald-500/40'
                 }`}
                 placeholder="••••••••"
@@ -351,6 +353,15 @@ export default function Login() {
                 aria-invalid={!!errors.password}
                 aria-describedby={errors.password ? "password-error" : undefined}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 hover:text-teal-600 transition-colors"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
             {errors.password && (
               <motion.p
@@ -382,12 +393,12 @@ export default function Login() {
                     <ShieldCheck className="w-5 h-5" />
                   </div>
                   <input
-                    type="password"
+                    type={showConfirmPassword ? 'text' : 'password'}
                     id="confirmPassword"
                     name="confirmPassword"
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    className={`w-full pl-12 pr-4 py-3.5 bg-slate-50 border rounded-2xl focus:outline-none focus:ring-2 transition-all text-sm placeholder:text-slate-400 text-slate-900 ${
+                    className={`w-full pl-12 pr-12 py-3.5 bg-slate-50 border rounded-2xl focus:outline-none focus:ring-2 transition-all text-sm placeholder:text-slate-400 text-slate-900 ${
                       errors.confirmPassword ? 'border-rose-300 focus:ring-rose-500/40' : 'border-slate-200/90 focus:ring-emerald-500/40'
                     }`}
                     placeholder="••••••••"
@@ -395,6 +406,15 @@ export default function Login() {
                     aria-invalid={!!errors.confirmPassword}
                     aria-describedby={errors.confirmPassword ? "confirmPassword-error" : undefined}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                    className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 hover:text-teal-600 transition-colors"
+                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                    tabIndex={-1}
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
                 </div>
                 {errors.confirmPassword && (
                   <motion.p

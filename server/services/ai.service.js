@@ -141,38 +141,82 @@ function extractReportHighlights(text) {
 }
 
 function buildFallbackAnalysis(extractionResult) {
+  const source = extractionResult && typeof extractionResult === 'object' ? extractionResult : null;
   const text = typeof extractionResult === 'string' ? extractionResult : JSON.stringify(extractionResult || {});
   const lower = (text || '').toLowerCase();
   const highlights = extractReportHighlights(text);
+
+  // The normal fallback input from the report controller is the compact AI
+  // context, not raw OCR text. Read its parameter arrays explicitly instead
+  // of searching the JSON string; otherwise a Bedrock outage degrades every
+  // report to the misleading generic "Report values" card.
+  const structuredParameters = source
+    ? [
+      ...(Array.isArray(source.parameters) ? source.parameters : []),
+      ...(Array.isArray(source.criticalFindings) ? source.criticalFindings : []),
+      ...(Array.isArray(source.abnormalParameters) ? source.abnormalParameters : []),
+    ]
+    : [];
+
+  const seenParameters = new Set();
+  const contextParameters = structuredParameters.reduce((result, item) => {
+    if (!item || typeof item !== 'object') return result;
+
+    const name = item.name || item.parameter || item.id;
+    const rawValue = item.normalizedValue ?? item.value;
+    if (!name || rawValue === undefined || rawValue === null) return result;
+
+    const key = String(name).toLowerCase();
+    if (seenParameters.has(key)) return result;
+    seenParameters.add(key);
+
+    const unit = item.normalizedUnit ?? item.unit;
+    const value = unit && !String(rawValue).includes(unit)
+      ? `${rawValue} ${unit}`
+      : String(rawValue);
+    const status = String(item.status || 'review').toLowerCase();
+    result.push({
+      name: String(name),
+      value,
+      status,
+      explanation: item.explanation || `This ${name} result is marked ${status.replace(/_/g, ' ')} and should be reviewed with a clinician.`,
+    });
+    return result;
+  }, []);
 
   const detectParameter = (patterns) => patterns.some((pattern) => lower.includes(pattern));
 
   let disease = 'General wellness review';
   const summaryParts = [];
 
-  if (detectParameter(['glucose', 'fasting sugar', 'blood sugar'])) {
+  const parameterNames = contextParameters.map((item) => item.name.toLowerCase());
+  const hasParameter = (patterns) => patterns.some((pattern) => parameterNames.some((name) => name.includes(pattern)));
+
+  if (detectParameter(['glucose', 'fasting sugar', 'blood sugar']) || hasParameter(['glucose', 'sugar'])) {
     disease = 'Blood sugar review';
     summaryParts.push('blood sugar values');
   }
-  if (detectParameter(['cholesterol', 'ldl', 'hdl', 'triglycerides'])) {
+  if (detectParameter(['cholesterol', 'ldl', 'hdl', 'triglycerides']) || hasParameter(['cholesterol', 'ldl', 'hdl', 'triglyceride'])) {
     disease = 'Lipid profile review';
     summaryParts.push('cholesterol and lipid markers');
   }
-  if (detectParameter(['hemoglobin', 'anemia', 'hb'])) {
+  if (detectParameter(['hemoglobin', 'anemia', 'hb']) || hasParameter(['hemoglobin', 'haemoglobin'])) {
     disease = 'Hemoglobin review';
     summaryParts.push('hemoglobin and iron-related markers');
   }
-  if (detectParameter(['vitamin d', 'vitamin b', 'vitamin'])) {
+  if (detectParameter(['vitamin d', 'vitamin b', 'vitamin']) || hasParameter(['vitamin'])) {
     summaryParts.push('vitamin and micronutrient levels');
   }
 
-  const sentenceParts = highlights.slice(0, 3).map((item) => `${item.label} ${item.value}`);
+  const sentenceParts = (contextParameters.length > 0 ? contextParameters : highlights)
+    .slice(0, 3)
+    .map((item) => `${item.name || item.label} ${item.value}`);
   const reportMention = sentenceParts.length > 0 ? `The report includes ${sentenceParts.join(', ')}.` : 'The report includes several lab values that should be reviewed.';
   const focusText = summaryParts.length > 0 ? `The main focus appears to be ${disease.toLowerCase()} and ${summaryParts.join(' and ')}.` : 'The main focus appears to be the uploaded report values.';
   const summary = `${reportMention} ${focusText} Please confirm these findings with a qualified healthcare professional.`;
 
-  const bloodParameters = [];
-  if (highlights.length > 0) {
+  const bloodParameters = [...contextParameters];
+  if (bloodParameters.length === 0 && highlights.length > 0) {
     highlights.slice(0, 4).forEach((item) => {
       bloodParameters.push({
         name: item.label,
@@ -200,6 +244,13 @@ function buildFallbackAnalysis(extractionResult) {
   };
 }
 
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Request timeout')), ms)),
+  ]);
+}
+
 function createBedrockClient(apiKey) {
   const signedUrl = parseSignedBedrockUrl(apiKey);
   if (signedUrl) {
@@ -207,23 +258,32 @@ function createBedrockClient(apiKey) {
   }
 
   const creds = parseBedrockKey(apiKey);
-  const region = creds?.region || process.env.BEDROCK_REGION || 'us-east-2';
-  const accessKeyId = creds?.accessKeyId || '';
+  const region = creds?.region || process.env.BEDROCK_REGION || process.env.AWS_REGION || 'us-east-2';
 
-  const clientConfig = {
-    region,
-    credentials: {
+  const clientConfig = { region };
+
+  // Prefer creds embedded in the bedrock-api-key blob, then fall back to
+  // standard AWS IAM env vars (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY),
+  // which is the normal Bedrock auth path (access key + secret access key).
+  const accessKeyId = creds?.accessKeyId || process.env.AWS_ACCESS_KEY_ID || '';
+  const secretAccessKey = creds?.secretKey || process.env.AWS_SECRET_ACCESS_KEY || '';
+  const sessionToken = creds?.sessionToken || process.env.AWS_SESSION_TOKEN || undefined;
+
+  if (accessKeyId && secretAccessKey) {
+    clientConfig.credentials = {
       accessKeyId,
-      secretAccessKey: creds?.secretKey || '',
-      sessionToken: creds?.sessionToken || undefined,
-    },
-  };
+      secretAccessKey,
+      sessionToken,
+    };
+  }
+  // If neither source has real credentials, `credentials` is omitted so the
+  // AWS SDK falls back to its default chain (~/.aws/credentials, EC2 IMDS…).
 
   return { mode: 'sdk', client: new BedrockRuntimeClient(clientConfig) };
 }
 
 async function callBedrock(client, prompt, maxTokens = MAX_TOKENS, temperature = TEMPARATURE) {
-  return callBedrockWithMessages(client, [{ role: 'user', content: prompt }], maxTokens, temperature);
+  return withTimeout(callBedrockWithMessages(client, [{ role: 'user', content: prompt }], maxTokens, temperature), 3000);
 }
 
 async function callBedrockWithMessages(client, messages, maxTokens = MAX_TOKENS, temperature = TEMPARATURE) {

@@ -23,6 +23,17 @@ export function matchParameter(line, { resolve = aliasResolver } = {}) {
   for (const { end, label } of candidates) {
     const parameter = resolve(label, { fuzzyThreshold: 1 });
     if (parameter) return { parameter, label, start: offset, end: offset + end };
+
+    // PDF text extraction often loses the separator between the label and the
+    // first value (e.g. "Haemoglobin11.8"). If the label is directly joined to
+    // digits, retry with the label truncated before the first digit so the
+    // value run does not poison the exact lookup.
+    const alphaMatch = /^[^\d]+/u.exec(label);
+    const alphaLabel = alphaMatch && alphaMatch[0].length < label.length ? alphaMatch[0] : null;
+    if (alphaLabel) {
+      const parameterAlpha = resolve(alphaLabel, { fuzzyThreshold: 1 });
+      if (parameterAlpha) return { parameter: parameterAlpha, label: alphaLabel, start: offset, end: offset + alphaLabel.length };
+    }
   }
 
   // OCR typo tolerance applies only to label-shaped candidates. Numeric labels

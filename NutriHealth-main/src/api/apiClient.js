@@ -133,6 +133,7 @@ async function request(path, { method = 'GET', body, headers, timeout = DEFAULT_
 export const api = {
   get: (path, options) => request(path, { ...options, method: 'GET' }),
   post: (path, data, options) => request(path, { ...options, method: 'POST', body: data }),
+  put: (path, data, options) => request(path, { ...options, method: 'PUT', body: data }),
   delete: (path, options) => request(path, { ...options, method: 'DELETE' }),
   upload: (file, { path = '/analyze-report', fieldName = 'report', ...options } = {}) => {
     const formData = new FormData();
@@ -155,4 +156,45 @@ export function analyzeReport(file) {
 export async function sendChatMessage(message, reportContext = null, history = []) {
   const data = await api.post('/chat', { message, reportContext, history });
   return data.reply;
+}
+
+/** Account API Helpers */
+export async function getProfile() {
+  return api.get('/profile');
+}
+
+export async function updateProfile(data) {
+  return api.put('/profile', data);
+}
+
+export async function getPreferences() {
+  return api.get('/preferences');
+}
+
+export async function updatePreferences(data) {
+  return api.put('/preferences', data);
+}
+
+export async function getHealthGoals() {
+  return api.get('/health-goals');
+}
+
+export async function updateHealthGoals(healthGoals) {
+  return api.put('/health-goals', { healthGoals });
+}
+
+export async function getMedicalInformation() {
+  return api.get('/medical-information');
+}
+
+export async function updateMedicalInformation(data) {
+  return api.put('/medical-information', data);
+}
+
+export async function getReportsSummary() {
+  return api.get('/reports/summary');
+}
+
+export async function getAiPersonalization() {
+  return api.get('/ai-personalization');
 }

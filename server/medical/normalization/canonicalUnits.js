@@ -1,6 +1,6 @@
 export const CANONICAL_UNITS = {
   // CBC parameters
-  'hemoglobin': { canonicalUnit: 'g/L', conversionFactors: { 'g/dL': 10, 'mg/dL': 100, 'g/L': 1 } },
+  'hemoglobin': { canonicalUnit: 'g/L', conversionFactors: { 'g/dL': 10, 'mg/dL': 0.01, 'g/L': 1 } },
   'hematocrit': { canonicalUnit: '%', conversionFactors: { '%': 1, 'percent': 1 } },
   'red_blood_cell_count': { canonicalUnit: '10^12/L', conversionFactors: { '10^6/µL': 1, '10^12/L': 1 } },
   'white_blood_cell_count': { canonicalUnit: '10^9/L', conversionFactors: { '10^3/µL': 1, '10^9/L': 1 } },
@@ -29,7 +29,7 @@ export const CANONICAL_UNITS = {
 
   // Kidney
   'creatinine': { canonicalUnit: 'µmol/L', conversionFactors: { 'mg/dL': 88.4, 'µmol/L': 1 } },
-  'blood_urea_nitrogen': { canonicalUnit: 'mmol/L', conversionFactors: { 'mg/dL': 0.113, 'mmol/L': 1 } },
+  'blood_urea_nitrogen': { canonicalUnit: 'mmol/L', conversionFactors: { 'mg/dL': 0.357, 'mmol/L': 1 } },
   'estimated_glomerular_filtration_rate': { canonicalUnit: 'mL/min/1.73m²', conversionFactors: { 'mL/min/1.73m²': 1 } },
 
   // Liver
@@ -66,10 +66,10 @@ export const CANONICAL_UNITS = {
 
   // Vitamins
   'vitamin_b12': { canonicalUnit: 'pmol/L', conversionFactors: { 'pg/mL': 0.74, 'pmol/L': 1 } },
-  'folate': { canonicalUnit: 'nmol/L', conversionFactors: { 'ng/mL': 0.7, 'nmol/L': 1 } },
+  'folate': { canonicalUnit: 'nmol/L', conversionFactors: { 'ng/mL': 2.266, 'nmol/L': 1 } },
   'vitamin_d_25_hydroxy': { canonicalUnit: 'ng/mL', conversionFactors: { 'ng/mL': 1, 'nmol/L': 0.40 } },
   'vitamin_d_1_25_dihydroxy': { canonicalUnit: 'pg/mL', conversionFactors: { 'pg/mL': 1 } },
-  'vitamin_a': { canonicalUnit: 'µg/dL', conversionFactors: { 'µg/dL': 1, 'µmol/L': 0.0345 } },
+  'vitamin_a': { canonicalUnit: 'µg/dL', conversionFactors: { 'µg/dL': 1, 'µmol/L': 28.65 } },
   'vitamin_e': { canonicalUnit: 'mg/L', conversionFactors: { 'mg/L': 1, 'µmol/L': 0.4307 } },
   'vitamin_k': { canonicalUnit: 'ng/mL', conversionFactors: { 'ng/mL': 1 } },
   'vitamin_b1': { canonicalUnit: 'nmol/L', conversionFactors: { 'nmol/L': 1 } },
@@ -79,7 +79,7 @@ export const CANONICAL_UNITS = {
   'niacin': { canonicalUnit: 'nmol/L', conversionFactors: { 'nmol/L': 1 } },
 
   // Hormones
-  'cortisol': { canonicalUnit: 'nmol/L', conversionFactors: { 'µg/dL': 0.276, 'nmol/L': 1 } },
+  'cortisol': { canonicalUnit: 'nmol/L', conversionFactors: { 'µg/dL': 27.59, 'nmol/L': 1 } },
   'adrenocorticotropic_hormone': { canonicalUnit: 'pg/mL', conversionFactors: { 'pg/mL': 1 } },
   'dehydroepiandrosterone_sulfate': { canonicalUnit: 'µg/dL', conversionFactors: { 'µg/dL': 1 } },
   'testosterone_total': { canonicalUnit: 'nmol/L', conversionFactors: { 'ng/dL': 0.0347, 'nmol/L': 1 } },
@@ -98,7 +98,7 @@ export const CANONICAL_UNITS = {
   // Ferritin has variable molecular composition; ng/mL (equivalent to µg/L)
   // is retained rather than applying an unreliable mass-to-mole conversion.
   'ferritin': { canonicalUnit: 'ng/mL', conversionFactors: { 'ng/mL': 1, 'µg/L': 1 } },
-  'transferrin': { canonicalUnit: 'g/L', conversionFactors: { 'mg/dL': 0.1, 'g/L': 1 } },
+  'transferrin': { canonicalUnit: 'g/L', conversionFactors: { 'mg/dL': 0.01, 'g/L': 1 } },
   'total_iron_binding_capacity': { canonicalUnit: 'µmol/L', conversionFactors: { 'µg/dL': 0.1791, 'µmol/L': 1 } },
   'unsaturated_iron_binding_capacity': { canonicalUnit: 'µmol/L', conversionFactors: { 'µg/dL': 0.1791, 'µmol/L': 1 } },
   'transferrin_saturation': { canonicalUnit: 'ratio', conversionFactors: { 'ratio': 1 } },
@@ -117,7 +117,7 @@ export const CANONICAL_UNITS = {
   'homocysteine': { canonicalUnit: 'µmol/L', conversionFactors: { 'µmol/L': 1 } },
 
   // Diabetes-related beyond glucose
-  'fructosamine': { canonicalUnit: 'nmol/L', conversionFactors: { 'µmol/L': 1 } },
+  'fructosamine': { canonicalUnit: 'µmol/L', conversionFactors: { 'µmol/L': 1, 'nmol/L': 0.001 } },
 
   // General units
   'units_per_liter': { canonicalUnit: 'U/L', conversionFactors: { 'U/L': 1 } },

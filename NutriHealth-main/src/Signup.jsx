@@ -1,9 +1,12 @@
 import { useState } from 'react';
+// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
 import {
   Activity,
   AlertCircle,
   ArrowRight,
+  Eye,
+  EyeOff,
   HeartPulse,
   Lock,
   Mail,
@@ -24,6 +27,8 @@ export default function Signup() {
     confirmPassword: '',
   });
   const [errors, setErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const validate = () => {
     const nextErrors = {};
@@ -134,7 +139,8 @@ export default function Signup() {
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider" htmlFor="password">Password</label>
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-slate-400 group-focus-within:text-emerald-600 transition-colors"><Lock className="w-5 h-5" /></div>
-              <input type="password" id="password" name="password" value={formData.password} onChange={handleChange} className={`w-full pl-12 pr-4 py-3.5 bg-slate-50 border rounded-2xl focus:outline-none focus:ring-2 transition-all text-sm placeholder:text-slate-400 text-slate-900 ${errors.password ? 'border-rose-300 focus:ring-rose-500/40' : 'border-slate-200/90 focus:ring-emerald-500/40'}`} placeholder="••••••••" autoComplete="new-password" />
+              <input type={showPassword ? 'text' : 'password'} id="password" name="password" value={formData.password} onChange={handleChange} className={`w-full pl-12 pr-12 py-3.5 bg-slate-50 border rounded-2xl focus:outline-none focus:ring-2 transition-all text-sm placeholder:text-slate-400 text-slate-900 ${errors.password ? 'border-rose-300 focus:ring-rose-500/40' : 'border-slate-200/90 focus:ring-emerald-500/40'}`} placeholder="••••••••" autoComplete="new-password" />
+              <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 hover:text-teal-600 transition-colors" aria-label={showPassword ? 'Hide password' : 'Show password'} tabIndex={-1}>{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button>
             </div>
             {errors.password && <p className="text-xs text-rose-600 flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5" />{errors.password}</p>}
           </div>
@@ -143,7 +149,8 @@ export default function Signup() {
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider" htmlFor="confirmPassword">Confirm Password</label>
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-slate-400 group-focus-within:text-emerald-600 transition-colors"><ShieldCheck className="w-5 h-5" /></div>
-              <input type="password" id="confirmPassword" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} className={`w-full pl-12 pr-4 py-3.5 bg-slate-50 border rounded-2xl focus:outline-none focus:ring-2 transition-all text-sm placeholder:text-slate-400 text-slate-900 ${errors.confirmPassword ? 'border-rose-300 focus:ring-rose-500/40' : 'border-slate-200/90 focus:ring-emerald-500/40'}`} placeholder="••••••••" autoComplete="new-password" />
+              <input type={showConfirmPassword ? 'text' : 'password'} id="confirmPassword" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} className={`w-full pl-12 pr-12 py-3.5 bg-slate-50 border rounded-2xl focus:outline-none focus:ring-2 transition-all text-sm placeholder:text-slate-400 text-slate-900 ${errors.confirmPassword ? 'border-rose-300 focus:ring-rose-500/40' : 'border-slate-200/90 focus:ring-emerald-500/40'}`} placeholder="••••••••" autoComplete="new-password" />
+              <button type="button" onClick={() => setShowConfirmPassword((v) => !v)} className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 hover:text-teal-600 transition-colors" aria-label={showConfirmPassword ? 'Hide password' : 'Show password'} tabIndex={-1}>{showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button>
             </div>
             {errors.confirmPassword && <p className="text-xs text-rose-600 flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5" />{errors.confirmPassword}</p>}
           </div>

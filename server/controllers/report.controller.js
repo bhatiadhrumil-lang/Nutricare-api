@@ -17,6 +17,7 @@ const path = require('path');
 const { validateFile } = require('../utils/fileValidator');
 const { extractText } = require('../services/ocr.service');
 const { analyzeReport } = require('../services/ai.service');
+const dbService = require('../services/db.service');
 
 /**
  * Runs the full medical pipeline on raw OCR text.
@@ -33,50 +34,95 @@ async function runMedicalPipeline(rawText, file) {
 }
 
 /**
- * Enriches the basic pipeline result by running all downstream engines:
- *   Severity → Critical Detection → Consistency → Risk Scoring
- * Returns a combined data object ready for the AI Context Builder.
+ * Enriches the basic pipeline result by running the full evaluation chain:
+ *   Unit Normalization → Reference Normalization → Status → Severity →
+ *   Critical Detection → Consistency → Risk Scoring
+ * The pipeline's extraction stage emits raw records (parameterId, value,
+ * unit, string reference); this stage converts values into canonical units
+ * and computes typed statuses so the downstream engines receive the shape
+ * they are designed for.
  */
 async function enrichPipelineResult(pipelineResult) {
   const { classifySeverity } = await import('../medical/severity/severityEngine.js');
   const { detectCriticalValues } = await import('../medical/critical/criticalEngine.js');
   const { evaluateConsistency } = await import('../medical/consistency/consistencyEngine.js');
   const { calculateHealthRisk } = await import('../medical/risk/riskEngine.js');
+  const { normalizeUnit } = await import('../medical/normalization/unitAliasEngine.js');
+  const { CANONICAL_UNITS } = await import('../medical/normalization/canonicalUnits.js');
+  const { normalizeReference } = await import('../medical/referenceNormalization/referenceNormalizer.js');
+  const { calculateMedicalStatus } = await import('../medical/status/statusCalculator.js');
 
-  // Apply Severity + Critical Detection to each parameter
-  const enrichedParameters = pipelineResult.parameters.map((param) => {
+  // 1. Canonicalize: resolve the canonical parameter ID and convert the value
+  //    into canonical units (e.g. g/dL -> g/L) when the catalog knows a factor.
+  //    Status/severity continue to use the report-unit value together with the
+  //    report-unit reference range (unit-consistent), while critical/emergency
+  //    thresholds — expressed in canonical units — receive the converted value.
+  const canonicalizedParameters = pipelineResult.parameters.map((param) => {
+    const id = param.parameterId ?? param.id ?? param.parameter;
+    const unitInfo = normalizeUnit(param.unitRaw ?? param.unit ?? '');
+    const entry = id ? CANONICAL_UNITS[id] : null;
+    const factor = entry ? entry.conversionFactors?.[unitInfo.normalizedUnit] : undefined;
+    const isNumeric = typeof param.value === 'number' && Number.isFinite(param.value);
+    const canonicalValue = isNumeric && typeof factor === 'number'
+      ? Number((param.value * factor).toPrecision(10))
+      : param.value;
+
+    return {
+      ...param,
+      id,
+      parameterId: id,
+      normalizedValue: canonicalValue,
+      normalizedUnit: unitInfo.normalizedUnit || param.unit || null,
+      unitWarnings: unitInfo.warnings ?? [],
+    };
+  });
+
+  // 2. Status → Severity → Critical for every parameter.
+  const enrichedParameters = canonicalizedParameters.map((param) => {
+    const reference = normalizeReference(param.referenceRange?.raw ?? null);
+    const status = calculateMedicalStatus({
+      parameter: param.id,
+      normalizedValue: param.value,
+      reference,
+    });
+
     const severity = classifySeverity({
-      id: param.id ?? param.parameter,
-      value: param.normalizedValue ?? param.value,
-      status: param.status,
-      reference: param.referenceRange,
+      id: param.id,
+      value: param.value,
+      status: status.status,
+      reference,
     });
 
     const critical = detectCriticalValues({
-      parameter: param.id ?? param.parameter,
-      id: param.id ?? param.parameter,
-      value: param.normalizedValue ?? param.value,
-      status: severity.status ?? param.status,
+      parameter: param.id,
+      id: param.id,
+      value: param.normalizedValue,
+      status: severity.status ?? status.status,
       severity: severity.severity ?? 'NORMAL',
     });
 
     return {
       ...param,
-      severity: severity.severity ?? 'NORMAL',
+      status: status.status,
+      referenceNormalized: reference,
+      statusWarnings: status.warnings ?? [],
+      severity: severity.severity ?? 'UNKNOWN',
       severityScore: severity.severityScore ?? null,
+      severityWarnings: severity.warnings ?? [],
       clinicalPriority: critical.clinicalPriority ?? severity.clinicalPriority ?? 'LOW',
       critical: critical.critical ?? false,
       emergency: critical.emergency ?? false,
       alertLevel: critical.alertLevel ?? 'ROUTINE',
       recommendedAction: critical.recommendedAction ?? null,
       aiPriority: critical.aiPriority ?? 'LOW',
+      criticalWarnings: critical.warnings ?? [],
     };
   });
 
-  // Consistency Engine
+  // 3. Consistency Engine
   const { consistency } = evaluateConsistency(enrichedParameters);
 
-  // Risk Scoring Engine
+  // 4. Risk Scoring Engine
   const { healthScore } = calculateHealthRisk(enrichedParameters);
 
   return {
@@ -85,7 +131,7 @@ async function enrichPipelineResult(pipelineResult) {
     healthScore,
     metadata: pipelineResult.metadata,
     statistics: pipelineResult.statistics,
-    version: '2.0.0',
+    version: '2.1.0',
   };
 }
 
@@ -142,9 +188,26 @@ async function analyzeReportController(req, res) {
     // For image-only uploads (no OCR), fall back to image path reference
     const analysis = await analyzeReport(
       typeof extractionResult === 'string' ? formattedContext : extractionResult,
-      aiContext,
+      // Keep the full normalized parameters available for the deterministic
+      // fallback. The AI receives only formattedContext; this extra data is
+      // never sent to Bedrock.
+      { ...aiContext, parameters: enrichedData.parameters },
     );
     console.log('[Report] Analysis complete. Disease detected:', analysis.disease);
+
+    if (req.user?.sub) {
+      try {
+        await dbService.addReportRecord(req.user.sub, {
+          fileName: file.originalname,
+          uploadedAt: new Date().toISOString(),
+          status: 'Completed',
+          disease: analysis.disease,
+          healthScore: enrichedData.healthScore?.overall,
+        });
+      } catch (recErr) {
+        console.warn('[Report] Failed to record report history:', recErr.message);
+      }
+    }
 
     // ── 7. Respond ────────────────────────────────────────────────────────
     return res.status(200).json(analysis);

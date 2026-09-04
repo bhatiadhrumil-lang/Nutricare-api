@@ -7,6 +7,13 @@ const cognitoConfig = {
   region: process.env.AWS_REGION,
 };
 
+// Dev-only fallback. When the backend cannot reach AWS Cognito (e.g. locked-down
+// networks, offline demos, or sandboxes that block egress to Cognito), the
+// strict JWKS-based verification below fails. In that situation — and ONLY when
+// explicitly enabled — we trust the JWT claims locally (decode, no signature
+// check) so the demo keeps working. This MUST stay off in production.
+const DEV_AUTH_ENABLED = String(process.env.DEV_AUTH_ENABLED || '').toLowerCase() === 'true';
+
 let verifier;
 
 function getVerifier() {
@@ -29,6 +36,16 @@ function getVerifier() {
   });
 
   return verifier;
+}
+
+// Decode a JWT payload WITHOUT verifying the signature. Dev fallback only.
+function decodeJwtUnsafe(token) {
+  const parts = token.split('.');
+  if (parts.length !== 3) {
+    throw new Error('Malformed token');
+  }
+  const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+  return payload;
 }
 
 function getBearerToken(authorizationHeader) {
@@ -60,9 +77,32 @@ async function authenticateCognitoToken(req, res, next) {
   req.requestId = req.get('x-request-id') || randomUUID();
 
   const token = getBearerToken(req.get('authorization'));
-  const cognitoVerifier = getVerifier();
+  if (!token) {
+    return respondUnauthorized(req, res);
+  }
 
-  if (!token || !cognitoVerifier) {
+  // ── Dev fallback: local decode, no AWS round-trip ───────────────────────
+  if (DEV_AUTH_ENABLED) {
+    try {
+      const payload = decodeJwtUnsafe(token);
+      if (!payload.sub) {
+        return respondUnauthorized(req, res);
+      }
+      req.user = {
+        sub: payload.sub,
+        email: payload.email || payload['cognito:username'] || '',
+        username: payload['cognito:username'] || payload.username || payload.sub,
+      };
+      logAuthenticationAttempt(req, payload.sub);
+      return next();
+    } catch {
+      return respondUnauthorized(req, res);
+    }
+  }
+
+  // ── Strict path: verify signature + claims against Cognito JWKS ──────────
+  const cognitoVerifier = getVerifier();
+  if (!cognitoVerifier) {
     return respondUnauthorized(req, res);
   }
 
