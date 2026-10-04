@@ -39,3 +39,36 @@ test('handles a large report line by line', () => {
   assert.equal(result.statistics.totalLines, 1000);
   assert.equal(result.statistics.unmatchedLines, 0);
 });
+
+test('rejoins table rows split across lines (label, value, range on separate lines)', () => {
+  const result = extractMedicalParameters([
+    'Hemoglobin',
+    '13.2 g/dL',
+    '12.0 - 15.0',
+    'WBC',
+    '12,000 10^3/µL 4,000 - 11,000',
+  ].join('\n'));
+
+  assert.deepEqual(result.parameters.map((parameter) => parameter.parameterId), [
+    'hemoglobin', 'white_blood_cell_count',
+  ]);
+  assert.equal(result.parameters[0].value, 13.2);
+  assert.equal(result.parameters[0].referenceRange, '12.0 - 15.0');
+  assert.equal(result.parameters[1].value, 12000);
+  assert.equal(result.unmatched.length, 0);
+});
+
+test('attaches a trailing bare-range line to a reference-less parameter', () => {
+  const result = extractMedicalParameters('Hemoglobin 13.2 g/dL\n12.0 - 15.0');
+  assert.equal(result.parameters[0].parameterId, 'hemoglobin');
+  assert.equal(result.parameters[0].referenceRange, '12.0 - 15.0');
+  assert.equal(result.unmatched.length, 0);
+});
+
+test('does not merge consecutive label-only lines with each other', () => {
+  const result = extractMedicalParameters('Hemoglobin\nWBC\n12,000 10^3/µL 4,000 - 11,000');
+  assert.equal(result.parameters.length, 1);
+  assert.equal(result.parameters[0].parameterId, 'white_blood_cell_count');
+  assert.equal(result.unmatched.length, 1);
+  assert.equal(result.unmatched[0].line, 'Hemoglobin');
+});

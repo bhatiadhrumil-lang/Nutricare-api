@@ -10,6 +10,32 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState(null);
+  const [fileError, setFileError] = useState(null);
+
+  const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB
+  const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg', '.webp'];
+
+  const validateSelectedFile = (candidate) => {
+    if (!candidate) return 'Please choose a file to upload.';
+    const name = candidate.name || '';
+    const extension = name.slice(name.lastIndexOf('.')).toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(extension)) {
+      return 'Only PDF, PNG, JPG, JPEG, and WebP files are allowed.';
+    }
+    if (candidate.size > MAX_FILE_SIZE_BYTES) {
+      return `This file is ${(candidate.size / (1024 * 1024)).toFixed(1)} MB — the limit is 15 MB. Please upload a smaller or compressed file.`;
+    }
+    if (candidate.size === 0) {
+      return 'This file appears to be empty. Please choose a valid report file.';
+    }
+    return null;
+  };
+
+  const selectFile = (candidate) => {
+    const error = validateSelectedFile(candidate);
+    setFileError(error);
+    setFile(error ? null : candidate);
+  };
 
   const {
     setUploadedFile,
@@ -34,18 +60,18 @@ export default function Dashboard() {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setFile(e.dataTransfer.files[0]);
+      selectFile(e.dataTransfer.files[0]);
     }
   };
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFile(e.target.files[0]);
+      selectFile(e.target.files[0]);
     }
   };
 
   const handleAnalyze = async () => {
-    if (!file) return;
+    if (!file || fileError) return;
 
     resetReport();
     setUploadedFile(file);
@@ -158,6 +184,18 @@ export default function Dashboard() {
             <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px] opacity-40 pointer-events-none" />
           </label>
         </motion.div>
+
+        {/* Client-side validation error (shown before any upload attempt) */}
+        {fileError && (
+          <div className="mt-4 w-full flex items-start gap-3 p-4 bg-rose-50 border border-rose-200 rounded-2xl">
+            <ShieldCheck className="w-5 h-5 text-rose-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-rose-800 font-semibold text-sm">This file can't be analyzed</p>
+              <p className="text-rose-700 text-sm mt-0.5">{fileError}</p>
+              <p className="text-rose-600/80 text-xs mt-1">Tip: for photos, hold the page flat in good light and keep text sharp.</p>
+            </div>
+          </div>
+        )}
 
         {/* Action Button */}
         <motion.div 

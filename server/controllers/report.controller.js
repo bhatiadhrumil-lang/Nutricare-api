@@ -4,11 +4,12 @@
  *
  * Flow:
  *   1. Validate uploaded file
- *   2. Extract text (PDF) or delegate to OCR (image)
+ *   2. Extract text (PDF text layer, scanned-PDF OCR fallback, or image OCR)
  *   3. Run the full medical pipeline (Extraction → Normalization → Status → Severity → Critical → Consistency → Risk)
  *   4. Build the AI Context (compact, structured, token-efficient)
  *   5. Send AI Context to Claude (AWS Bedrock) via ai.service — NOT raw OCR
- *   6. Return JSON to frontend
+ *   6. Return JSON to frontend (422 when nothing readable/extractable —
+ *      never a generic success card for a failed extraction)
  *   7. Clean up temp file
  */
 
@@ -150,15 +151,44 @@ async function analyzeReportController(req, res) {
   const filePath = file.path;
 
   try {
-    // ── 2. Extract text / image reference ─────────────────────────────────
+    // ── 2. Extract text ───────────────────────────────────────────────────
+    // extractText() always resolves to a non-empty string or throws a coded
+    // Error (OCR_FAILED / PDF_UNREADABLE). There is no image-placeholder
+    // path: the pipeline never runs on an empty string.
     console.log(`[Report] Processing: ${file.originalname} (${file.mimetype})`);
-    const extractionResult = await extractText(filePath, file.mimetype);
+    let rawText;
+    try {
+      rawText = await extractText(filePath, file.mimetype);
+    } catch (extractErr) {
+      if (extractErr.code === 'OCR_FAILED' || extractErr.code === 'PDF_UNREADABLE') {
+        return res.status(422).json({
+          success: false,
+          code: extractErr.code,
+          error: extractErr.message,
+        });
+      }
+      throw extractErr;
+    }
+
+    if (!rawText || !rawText.trim()) {
+      return res.status(422).json({
+        success: false,
+        code: 'EMPTY_TEXT',
+        error: 'We could not read any text from this file. Please upload a clearer scan or a PDF with selectable text.',
+      });
+    }
 
     // ── 3. Run full medical pipeline ──────────────────────────────────────
-    const pipelineResult = await runMedicalPipeline(
-      typeof extractionResult === 'string' ? extractionResult : '',
-      file,
-    );
+    const pipelineResult = await runMedicalPipeline(rawText, file);
+
+    if (!pipelineResult.parameters || pipelineResult.parameters.length === 0) {
+      return res.status(422).json({
+        success: false,
+        code: 'NO_PARAMETERS_DETECTED',
+        error: 'We could read the file, but found no recognizable blood test values. Please upload a clearer scan showing the test names, values and units — photos should be well-lit, flat and in focus.',
+        details: pipelineResult.metadata?.errors ?? [],
+      });
+    }
 
     // ── 4. Enrich with Severity, Critical, Consistency, Risk ─────────────
     let enrichedData;
@@ -185,9 +215,8 @@ async function analyzeReportController(req, res) {
 
     // ── 6. Analyze with Claude via AI Service ─────────────────────────────
     console.log('[Report] Sending AI context to Claude...');
-    // For image-only uploads (no OCR), fall back to image path reference
     const analysis = await analyzeReport(
-      typeof extractionResult === 'string' ? formattedContext : extractionResult,
+      formattedContext,
       // Keep the full normalized parameters available for the deterministic
       // fallback. The AI receives only formattedContext; this extra data is
       // never sent to Bedrock.

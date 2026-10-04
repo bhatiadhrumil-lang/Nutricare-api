@@ -380,6 +380,16 @@ async function analyzeReport(extractionResult, aiContext = null) {
 }
 
 async function chatWithAssistant(reportContext, history, userMessage) {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (geminiKey) {
+    return chatWithGemini(geminiKey, reportContext, history, userMessage);
+  }
+
+  const openRouterKey = process.env.OPENROUTER_API_KEY;
+  if (openRouterKey) {
+    return chatWithOpenRouter(openRouterKey, reportContext, history, userMessage);
+  }
+
   const client = createBedrockClient(process.env.BEDROCK_API_KEY);
   const systemPrompt = buildChatSystemPrompt(reportContext);
 
@@ -396,6 +406,100 @@ async function chatWithAssistant(reportContext, history, userMessage) {
     return await callBedrockWithMessages(client, messages, 512, 0.6);
   } catch (error) {
     console.warn('[AI] Bedrock chat failed, using fallback response:', error.message);
+    return 'I’m currently unable to reach the AI service, but I can still help you review the report context. Please consult a qualified healthcare professional for confirmed guidance.';
+  }
+}
+
+const GEMINI_MODEL_ID = 'gemini-3.6-flash';
+
+async function chatWithGemini(apiKey, reportContext, history, userMessage) {
+  const systemPrompt = buildChatSystemPrompt(reportContext);
+
+  const contents = [
+    { role: 'user', parts: [{ text: systemPrompt }] },
+    ...(history || []).map((turn) => ({
+      role: turn.role === 'model' ? 'model' : 'user',
+      parts: [{ text: turn.text }],
+    })),
+    { role: 'user', parts: [{ text: userMessage }] },
+  ];
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_ID}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents,
+          generationConfig: { maxOutputTokens: 512, temperature: 0.6 },
+        }),
+      }
+    );
+
+    const responseText = await response.text();
+    if (!response.ok) {
+      let message = responseText;
+      try {
+        message = JSON.parse(responseText).error?.message || responseText;
+      } catch (e) {
+        /* keep raw text */
+      }
+      throw new Error(`Gemini request failed (${response.status}): ${message}`);
+    }
+
+    const body = JSON.parse(responseText);
+    const content = body.candidates?.[0]?.content?.parts?.find((part) => part.text)?.text;
+    if (!content) {
+      throw new Error('Gemini returned an empty response.');
+    }
+    return content;
+  } catch (error) {
+    console.warn('[AI] Gemini chat failed, using fallback response:', error.message);
+    return 'I’m currently unable to reach the AI service, but I can still help you review the report context. Please consult a qualified healthcare professional for confirmed guidance.';
+  }
+}
+
+async function chatWithOpenRouter(apiKey, reportContext, history, userMessage) {
+  const systemPrompt = buildChatSystemPrompt(reportContext);
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    ...(history || []).map((turn) => ({
+      role: turn.role === 'model' ? 'assistant' : 'user',
+      content: turn.text,
+    })),
+    { role: 'user', content: userMessage },
+  ];
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'openai/gpt-4o-mini',
+        messages,
+        max_tokens: 512,
+        temperature: 0.6,
+      }),
+    });
+
+    const responseText = await response.text();
+    if (!response.ok) {
+      throw new Error(`OpenRouter request failed (${response.status}): ${responseText}`);
+    }
+
+    const body = JSON.parse(responseText);
+    const content = body.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error('OpenRouter returned an empty response.');
+    }
+    return content;
+  } catch (error) {
+    console.warn('[AI] OpenRouter chat failed, using fallback response:', error.message);
     return 'I’m currently unable to reach the AI service, but I can still help you review the report context. Please consult a qualified healthcare professional for confirmed guidance.';
   }
 }
