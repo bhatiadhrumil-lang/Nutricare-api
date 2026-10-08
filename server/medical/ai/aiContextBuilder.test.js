@@ -21,6 +21,9 @@ import { extractNutritionContext, NUTRIENT_PARAMETER_MAP } from '../../medical/a
 import { extractAbnormalAndCritical } from '../../medical/ai/abnormalContext.js';
 import { buildAiInstructions } from '../../medical/ai/promptContext.js';
 import { AI_CONTEXT_WARNING_CODES, contextWarning, validateAiContext, estimateTokens } from '../../medical/ai/contextValidator.js';
+import { classifySeverity } from '../../medical/severity/severityEngine.js';
+import { detectCriticalValues } from '../../medical/critical/criticalEngine.js';
+import { calculateHealthRisk } from '../../medical/risk/riskEngine.js';
 
 // ─── Shared fixtures ──────────────────────────────────────────────────────────
 
@@ -601,4 +604,135 @@ test('integration: Claude format always starts with the NutriHealth header line'
     const text = formatContextForClaude(ctx);
     assert.ok(text.startsWith('=== NUTRIHEALTH MEDICAL REPORT AI CONTEXT ==='), `Header missing for report: ${report.metadata?.fileName}`);
   }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// C-1: hematocrit 45% propagates as non-critical through severity → risk → AI context
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const hctEnriched = {
+  id: 'hematocrit',
+  parameterId: 'hematocrit',
+  parameter: 'hematocrit',
+  displayName: 'Hematocrit',
+  value: 45,
+  valueRaw: '45',
+  comparator: null,
+  unit: '%',
+  unitRaw: '%',
+  normalizedValue: 45,
+  normalizedUnit: '%',
+  referenceRange: '36 - 46',
+  status: 'NORMAL',
+  severity: 'NORMAL',
+  severityScore: 0,
+  clinicalPriority: 'LOW',
+  critical: false,
+  emergency: false,
+  alertLevel: 'GREEN',
+  recommendedAction: 'Routine monitoring',
+  aiPriority: 10,
+};
+
+test('C-1 propagation: severity stays NORMAL for hematocrit 45%', () => {
+  const severity = classifySeverity({
+    id: 'hematocrit',
+    value: 45,
+    status: 'NORMAL',
+    reference: { type: 'range', low: 36, high: 46 },
+  });
+  assert.equal(severity.severity, 'NORMAL');
+});
+
+test('C-1 propagation: critical engine, risk scoring and AI context agree NOT critical', () => {
+  const critical = detectCriticalValues({
+    parameter: 'hematocrit',
+    value: hctEnriched.normalizedValue,
+    status: hctEnriched.status,
+    severity: hctEnriched.severity,
+  });
+  assert.equal(critical.critical, false);
+  assert.equal(critical.emergency, false);
+
+  const { healthScore } = calculateHealthRisk([hctEnriched]);
+  assert.ok(typeof healthScore.overall === 'number');
+
+  const ctx = buildAiContext({
+    parameters: [hctEnriched],
+    healthScore,
+    consistency: { score: null, patterns: [], contradictions: [], warnings: [] },
+    metadata: { sourceType: 'application/pdf', fileName: 'hct.pdf', pageCount: 1 },
+    version: '2.1.0',
+  });
+  assert.ok(!ctx.criticalFindings.some((f) => f.parameter === 'hematocrit'));
+  assert.ok(ctx.normalSummary.parameters.includes('hematocrit'));
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// C-2: canonical value/unit pairing in AI context and nutrition context
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Post-fix enriched contract: report value/unit preserved, normalized pair is
+// canonical (e.g. 13.2 g/dL -> 132 g/L; 110 mg/dL -> 6.105 mmol/L).
+const hbEnriched = {
+  id: 'hemoglobin', parameterId: 'hemoglobin', parameter: 'hemoglobin', displayName: 'Hemoglobin',
+  value: 13.2, valueRaw: '13.2', comparator: null, unit: 'g/dL', unitRaw: 'g/dL',
+  normalizedValue: 132, normalizedUnit: 'g/L',
+  referenceRange: '12.0 - 15.0', status: 'HIGH', severity: 'MILD_HIGH',
+  clinicalPriority: 'MEDIUM', critical: false, emergency: false, alertLevel: 'YELLOW',
+  recommendedAction: 'Schedule medical follow-up', aiPriority: 50,
+};
+
+const glucoseEnriched = {
+  id: 'fasting_plasma_glucose', parameterId: 'fasting_plasma_glucose', parameter: 'fasting_plasma_glucose',
+  displayName: 'Fasting Plasma Glucose',
+  value: 110, valueRaw: '110', comparator: null, unit: 'mg/dL', unitRaw: 'mg/dL',
+  normalizedValue: 6.105, normalizedUnit: 'mmol/L',
+  referenceRange: '70 - 100', status: 'HIGH', severity: 'MILD_HIGH',
+  clinicalPriority: 'MEDIUM', critical: false, emergency: false, alertLevel: 'YELLOW',
+  recommendedAction: 'Schedule medical follow-up', aiPriority: 50,
+};
+
+test('C-2 contract: enriched params keep report pair and canonical pair distinct', () => {
+  for (const p of [hbEnriched, glucoseEnriched]) {
+    assert.ok(typeof p.value === 'number' && typeof p.unit === 'string');
+    assert.ok(typeof p.normalizedValue === 'number' && typeof p.normalizedUnit === 'string');
+  }
+  assert.deepEqual([hbEnriched.value, hbEnriched.unit], [13.2, 'g/dL']);
+  assert.deepEqual([hbEnriched.normalizedValue, hbEnriched.normalizedUnit], [132, 'g/L']);
+  assert.deepEqual([glucoseEnriched.value, glucoseEnriched.unit], [110, 'mg/dL']);
+  assert.deepEqual([glucoseEnriched.normalizedValue, glucoseEnriched.normalizedUnit], [6.105, 'mmol/L']);
+});
+
+test('C-2 AI context contains 132 g/L and never 132 g/dL', () => {
+  const ctx = buildAiContext({
+    parameters: [hbEnriched, glucoseEnriched],
+    healthScore: { overall: 80, domains: [] },
+    consistency: { score: null, patterns: [], contradictions: [], warnings: [] },
+    metadata: { sourceType: 'application/pdf', fileName: 'units.pdf', pageCount: 1 },
+    version: '2.1.0',
+  });
+  const text = formatContextForClaude(ctx);
+  assert.ok(text.includes('132 g/L'), 'expected canonical hemoglobin pair');
+  assert.ok(!text.includes('132 g/dL'), 'converted value must never pair with report unit');
+});
+
+test('C-2 AI context contains 6.105 mmol/L and never 6.105 mg/dL', () => {
+  const ctx = buildAiContext({
+    parameters: [glucoseEnriched],
+    healthScore: { overall: 80, domains: [] },
+    consistency: { score: null, patterns: [], contradictions: [], warnings: [] },
+    metadata: { sourceType: 'application/pdf', fileName: 'units.pdf', pageCount: 1 },
+    version: '2.1.0',
+  });
+  const text = formatContextForClaude(ctx);
+  assert.ok(text.includes('6.105 mmol/L'), 'expected canonical glucose pair');
+  assert.ok(!text.includes('6.105 mg/dL'), 'converted value must never pair with report unit');
+});
+
+test('C-2 nutrition context uses canonical pairs, not converted-value/report-unit mixes', () => {
+  const nutrition = extractNutritionContext([hbEnriched, glucoseEnriched]);
+  const rendered = JSON.stringify(nutrition);
+  assert.ok(!rendered.includes('132 g/dL'));
+  assert.ok(!rendered.includes('6.105 mg/dL'));
 });

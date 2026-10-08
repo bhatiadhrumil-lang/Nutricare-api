@@ -11,8 +11,18 @@ const cognitoConfig = {
 // networks, offline demos, or sandboxes that block egress to Cognito), the
 // strict JWKS-based verification below fails. In that situation — and ONLY when
 // explicitly enabled — we trust the JWT claims locally (decode, no signature
-// check) so the demo keeps working. This MUST stay off in production.
-const DEV_AUTH_ENABLED = String(process.env.DEV_AUTH_ENABLED || '').toLowerCase() === 'true';
+// check) so the demo keeps working.
+//
+// PRODUCTION GUARD: this fallback is force-disabled whenever
+// NODE_ENV=production, no matter what DEV_AUTH_ENABLED says, so production
+// can never accidentally run without signature verification. Development
+// behavior is unchanged when explicitly enabled outside production.
+const DEV_AUTH_REQUESTED = String(process.env.DEV_AUTH_ENABLED || '').toLowerCase() === 'true';
+const DEV_AUTH_ENABLED = DEV_AUTH_REQUESTED && process.env.NODE_ENV !== 'production';
+
+if (DEV_AUTH_REQUESTED && process.env.NODE_ENV === 'production') {
+  console.error('[Auth] DEV_AUTH_ENABLED=true is ignored in production: failing closed to strict Cognito verification.');
+}
 
 let verifier;
 

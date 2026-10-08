@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
-import { AlertCircle, FileSearch } from 'lucide-react';
+import { AlertCircle, FileSearch, Info } from 'lucide-react';
 import { useReport } from './context/ReportContext';
 import AIConsultationFlow from './components/consultation/AIConsultationFlow';
 
@@ -83,6 +83,24 @@ export default function Results() {
           <p className="text-amber-800 text-sm">
             A partial issue occurred during analysis; results below may be incomplete.
           </p>
+        </motion.div>
+      )}
+
+      {/* Fallback visibility: never present deterministic output as live AI analysis */}
+      {analysisResult.source === 'fallback' && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-5xl mx-auto flex items-start gap-3 p-4 bg-sky-50 border border-sky-200 rounded-2xl"
+        >
+          <Info className="w-5 h-5 text-sky-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sky-900 font-semibold text-sm">AI analysis is temporarily unavailable</p>
+            <p className="text-sky-800 text-sm mt-0.5">
+              The report was processed using the available deterministic analysis.
+              {analysisResult.errorCode ? ` (${analysisResult.errorCode})` : ''}
+            </p>
+          </div>
         </motion.div>
       )}
 

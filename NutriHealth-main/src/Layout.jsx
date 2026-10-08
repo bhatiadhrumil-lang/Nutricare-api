@@ -54,6 +54,17 @@ export default function Layout() {
     };
   }, [performLogout]);
 
+  // Session expiry: the API client emits this when Cognito rejects a request
+  // (expired/invalid/revoked token). This listener lives only inside the
+  // authenticated layout, so public routes can never redirect-loop.
+  useEffect(() => {
+    const onSessionExpired = () => {
+      void performLogout();
+    };
+    window.addEventListener('nutrihealth:session-expired', onSessionExpired);
+    return () => window.removeEventListener('nutrihealth:session-expired', onSessionExpired);
+  }, [performLogout]);
+
   // Track window resize
   useEffect(() => {
     const handleResize = () => {

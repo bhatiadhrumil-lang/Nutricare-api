@@ -2,9 +2,34 @@ const fs = require('fs');
 const { buildAnalysisPrompt, buildChatSystemPrompt } = require('../utils/promptBuilder');
 const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
 
-const MODEL_ID = 'anthropic.claude-3-5-sonnet-20241022-v2:0';
 const MAX_TOKENS = 2048;
-const TEMPARATURE = 0.2;
+
+// ─── Bedrock model + request configuration ──────────────────────────
+// Resolved at call time (not import time) so tests and long-lived processes
+// observe environment changes. Override with:
+//   BEDROCK_MODEL_ID=anthropic.claude-sonnet-4-6
+//   BEDROCK_TIMEOUT_MS=30000
+const DEFAULT_BEDROCK_MODEL_ID = 'anthropic.claude-sonnet-4-6';
+const DEFAULT_BEDROCK_TIMEOUT_MS = 30000;
+// Sonnet 4.x accepts only ONE of temperature / top_p. NutriHealth uses a low
+// temperature for consistent medical-report explanations — top_p must never
+// be sent alongside it.
+const BEDROCK_TEMPERATURE = 0.2;
+
+function resolveModelId() {
+  const override = (process.env.BEDROCK_MODEL_ID || '').trim();
+  return override || DEFAULT_BEDROCK_MODEL_ID;
+}
+
+function resolveTimeoutMs() {
+  const parsed = Number(process.env.BEDROCK_TIMEOUT_MS);
+  if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
+  return DEFAULT_BEDROCK_TIMEOUT_MS;
+}
+
+function resolveRegion() {
+  return process.env.BEDROCK_REGION || process.env.AWS_REGION || 'us-east-2';
+}
 
 function parseSignedBedrockUrl(apiKey) {
   if (!apiKey || typeof apiKey !== 'string') return null;
@@ -69,7 +94,7 @@ function parseBedrockKey(apiKey) {
   }
 }
 
-function buildAnthropicPayload(messages, maxTokens = MAX_TOKENS, temperature = TEMPARATURE) {
+function buildAnthropicPayload(messages, maxTokens = MAX_TOKENS, temperature = BEDROCK_TEMPERATURE) {
   const systemMessages = [];
   const chatMessages = [];
 
@@ -89,6 +114,8 @@ function buildAnthropicPayload(messages, maxTokens = MAX_TOKENS, temperature = T
   const payload = {
     anthropic_version: 'bedrock-2023-05-31',
     max_tokens: maxTokens,
+    // Temperature-only sampling: Sonnet 4.x rejects requests that send both
+    // temperature and top_p, so top_p is deliberately never included.
     temperature,
     messages: chatMessages,
   };
@@ -247,7 +274,14 @@ function buildFallbackAnalysis(extractionResult) {
 function withTimeout(promise, ms) {
   return Promise.race([
     promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error('Request timeout')), ms)),
+    new Promise((_, reject) => {
+      const timer = setTimeout(() => {
+        const error = new Error(`Bedrock request timed out after ${ms}ms`);
+        error.code = 'BEDROCK_TIMEOUT';
+        reject(error);
+      }, ms);
+      if (timer.unref) timer.unref();
+    }),
   ]);
 }
 
@@ -282,11 +316,11 @@ function createBedrockClient(apiKey) {
   return { mode: 'sdk', client: new BedrockRuntimeClient(clientConfig) };
 }
 
-async function callBedrock(client, prompt, maxTokens = MAX_TOKENS, temperature = TEMPARATURE) {
-  return withTimeout(callBedrockWithMessages(client, [{ role: 'user', content: prompt }], maxTokens, temperature), 3000);
+async function callBedrock(client, prompt, maxTokens = MAX_TOKENS, temperature = BEDROCK_TEMPERATURE) {
+  return withTimeout(callBedrockWithMessages(client, [{ role: 'user', content: prompt }], maxTokens, temperature), resolveTimeoutMs());
 }
 
-async function callBedrockWithMessages(client, messages, maxTokens = MAX_TOKENS, temperature = TEMPARATURE) {
+async function callBedrockWithMessages(client, messages, maxTokens = MAX_TOKENS, temperature = BEDROCK_TEMPERATURE) {
   if (client?.mode === 'signed-url') {
     try {
       const response = await fetch(client.signedUrl, {
@@ -312,7 +346,7 @@ async function callBedrockWithMessages(client, messages, maxTokens = MAX_TOKENS,
   }
 
   const command = new InvokeModelCommand({
-    modelId: MODEL_ID,
+    modelId: resolveModelId(),
     contentType: 'application/json',
     accept: 'application/json',
     body: JSON.stringify(buildAnthropicPayload(messages, maxTokens, temperature)),
@@ -324,6 +358,89 @@ async function callBedrockWithMessages(client, messages, maxTokens = MAX_TOKENS,
 }
 
 /**
+ * Classifies a Bedrock failure into a stable, frontend-safe error code.
+ * Never includes credentials or stack traces — callers log those server-side.
+ */
+function classifyBedrockError(error) {
+  if (!error || typeof error !== 'object') return 'UNKNOWN_AI_ERROR';
+  if (error.code === 'BEDROCK_TIMEOUT') return 'BEDROCK_TIMEOUT';
+
+  const name = error.name || '';
+  const message = error.message || '';
+  const status = error.$metadata?.httpStatusCode;
+
+  if (
+    name === 'TimeoutError' || name === 'AbortError'
+    || name === 'ModelTimeoutException'
+    || /operation timed? out|model.*timed? out|socket hang up|timed? out/i.test(message)
+  ) {
+    return 'BEDROCK_TIMEOUT';
+  }
+  if (
+    name === 'AccessDeniedException' || name === 'UnauthorizedException'
+    || status === 403
+    || /access denied|not authorized|unauthorized|forbidden|entitlement/i.test(message)
+  ) {
+    return 'MODEL_ACCESS_DENIED';
+  }
+  if (
+    name === 'ThrottlingException' || name === 'ThrottledException'
+    || name === 'TooManyRequestsException' || status === 429
+    || /throttl|too many requests|rate exceeded|slow down/i.test(message)
+  ) {
+    return 'BEDROCK_THROTTLED';
+  }
+  if (
+    name === 'ResourceNotFoundException'
+    || /model .* not found|unknown model|invalid model|model .* does not exist|resource.*not found|could not resolve/i.test(message)
+  ) {
+    return 'MODEL_NOT_FOUND';
+  }
+  // Retired / deprecated identifiers surface as validation failures, but the
+  // model is unusable — report it as not-found so operators fix the model ID.
+  if (/end of .*life|deprecat|discontinued|no longer (available|supported)|retired|sunset/i.test(message)) {
+    return 'MODEL_NOT_FOUND';
+  }
+  if (name === 'ValidationException' || status === 400) return 'BEDROCK_VALIDATION_ERROR';
+  if (
+    name === 'InternalServerException' || name === 'ServiceUnavailableException'
+    || name === 'ModelNotReadyException'
+    || (typeof status === 'number' && status >= 500)
+  ) {
+    return 'BEDROCK_SERVICE_ERROR';
+  }
+  return 'UNKNOWN_AI_ERROR';
+}
+
+// User-facing notice per error code. Generic by design: no AWS details,
+// identifiers, or internals ever reach the client.
+const BEDROCK_USER_MESSAGES = {
+  MODEL_NOT_FOUND: 'The AI model is currently unavailable. Your report was reviewed with the built-in clinical summary instead.',
+  MODEL_ACCESS_DENIED: 'The AI service is not authorized right now. Your report was reviewed with the built-in clinical summary instead.',
+  BEDROCK_TIMEOUT: 'The AI service took too long to respond. Your report was reviewed with the built-in clinical summary instead.',
+  BEDROCK_THROTTLED: 'The AI service is busy right now. Your report was reviewed with the built-in clinical summary instead.',
+  BEDROCK_VALIDATION_ERROR: 'The AI request was rejected. Your report was reviewed with the built-in clinical summary instead.',
+  BEDROCK_SERVICE_ERROR: 'The AI service had an internal problem. Your report was reviewed with the built-in clinical summary instead.',
+  UNKNOWN_AI_ERROR: 'The AI service is unreachable right now. Your report was reviewed with the built-in clinical summary instead.',
+};
+
+/**
+ * Wraps the deterministic fallback so it is never mistaken for a successful
+ * Bedrock analysis. Additive metadata only — the existing clinical fields
+ * (disease, summary, bloodParameters, …) keep their contract.
+ */
+function buildMarkedFallback(aiContextOrText, errorCode) {
+  const code = BEDROCK_USER_MESSAGES[errorCode] ? errorCode : 'UNKNOWN_AI_ERROR';
+  return {
+    ...buildFallbackAnalysis(aiContextOrText),
+    success: false,
+    source: 'fallback',
+    errorCode: code,
+    notice: BEDROCK_USER_MESSAGES[code],
+  };
+}
+
+/**
  * Analyzes a medical report using Claude (AWS Bedrock).
  *
  * When called from the report controller, `extractionResult` is the
@@ -332,9 +449,12 @@ async function callBedrockWithMessages(client, messages, maxTokens = MAX_TOKENS,
  *
  * @param {string|object} extractionResult - Formatted AI context string OR image reference object
  * @param {object|null}   aiContext        - Structured AI context object (for fallback enrichment)
+ * @param {object}        options          - Optional overrides for tests
+ *   ({ client, caller }) — the Bedrock caller defaults to the real
+ *   InvokeModel path; tests inject a stub. Never used by the controller.
  */
-async function analyzeReport(extractionResult, aiContext = null) {
-  const client = createBedrockClient(process.env.BEDROCK_API_KEY);
+async function analyzeReport(extractionResult, aiContext = null, options = {}) {
+  const modelId = resolveModelId();
   let prompt;
   let messages;
 
@@ -353,13 +473,21 @@ async function analyzeReport(extractionResult, aiContext = null) {
     throw new Error('Invalid extractionResult passed to analyzeReport.');
   }
 
+  const caller = options.caller || callBedrockWithMessages;
+  const client = options.client || createBedrockClient(process.env.BEDROCK_API_KEY);
+  const startedAt = Date.now();
+
   let rawText;
   try {
-    rawText = await callBedrockWithMessages(client, messages, MAX_TOKENS, TEMPARATURE);
+    rawText = await caller(client, messages, MAX_TOKENS, BEDROCK_TEMPERATURE);
   } catch (error) {
-    console.warn('[AI] Bedrock request failed, using fallback analysis:', error.message);
+    const errorCode = classifyBedrockError(error);
+    console.warn(
+      `[AI] Bedrock request failed (code=${errorCode}, model=${modelId}, region=${resolveRegion()}, latencyMs=${Date.now() - startedAt}):`,
+      error.message,
+    );
     // Pass aiContext to fallback so it can use structured data if available
-    return buildFallbackAnalysis(aiContext || extractionResult);
+    return buildMarkedFallback(aiContext || extractionResult, errorCode);
   }
 
   const cleanedText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
@@ -369,14 +497,15 @@ async function analyzeReport(extractionResult, aiContext = null) {
     parsed = JSON.parse(cleanedText);
   } catch (parseErr) {
     console.error('[AI] Failed to parse JSON. Raw response (first 500 chars):', cleanedText.slice(0, 500));
-    return buildFallbackAnalysis(aiContext || extractionResult);
+    return buildMarkedFallback(aiContext || extractionResult, 'UNKNOWN_AI_ERROR');
   }
 
   if (!parsed.disclaimer) {
     parsed.disclaimer = 'This is not medical advice. Please consult a qualified healthcare professional.';
   }
 
-  return parsed;
+  console.log(`[AI] Bedrock analysis ok (model=${modelId}, region=${resolveRegion()}, latencyMs=${Date.now() - startedAt}).`);
+  return { ...parsed, success: true, source: 'bedrock', model: modelId };
 }
 
 async function chatWithAssistant(reportContext, history, userMessage) {
@@ -405,7 +534,7 @@ async function chatWithAssistant(reportContext, history, userMessage) {
   try {
     return await callBedrockWithMessages(client, messages, 512, 0.6);
   } catch (error) {
-    console.warn('[AI] Bedrock chat failed, using fallback response:', error.message);
+    console.warn(`[AI] Bedrock chat failed (${classifyBedrockError(error)}):`, error.message);
     return 'I’m currently unable to reach the AI service, but I can still help you review the report context. Please consult a qualified healthcare professional for confirmed guidance.';
   }
 }
@@ -507,9 +636,22 @@ async function chatWithOpenRouter(apiKey, reportContext, history, userMessage) {
 module.exports = {
   analyzeReport,
   chatWithAssistant,
+  // Exported for the AI agent service (existing import) — same signatures.
+  createBedrockClient,
+  callBedrock,
+  callBedrockWithMessages,
   __test: {
     parseSignedBedrockUrl,
     buildAnthropicPayload,
     buildFallbackAnalysis,
+    withTimeout,
+    resolveModelId,
+    resolveTimeoutMs,
+    resolveRegion,
+    classifyBedrockError,
+    buildMarkedFallback,
+    DEFAULT_BEDROCK_MODEL_ID,
+    DEFAULT_BEDROCK_TIMEOUT_MS,
+    BEDROCK_TEMPERATURE,
   },
 };

@@ -25,6 +25,19 @@ export class ApiError extends Error {
   }
 }
 
+// Notifies the app shell (Layout) that the Cognito session is no longer
+// valid so it can run the standard logout flow. Event-based to keep routing
+// out of this module; the login/public routes never subscribe, so no loops.
+function notifySessionExpired() {
+  try {
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new Event('nutrihealth:session-expired'));
+    }
+  } catch {
+    // Non-browser environment; nothing to notify.
+  }
+}
+
 async function getAccessToken() {
   try {
     const session = await fetchAuthSession();
@@ -82,7 +95,15 @@ function getErrorMessage(data, status) {
 }
 
 async function request(path, { method = 'GET', body, headers, timeout = DEFAULT_TIMEOUT_MS } = {}) {
-  const accessToken = await getAccessToken();
+  let accessToken;
+  try {
+    accessToken = await getAccessToken();
+  } catch (error) {
+    if (error instanceof AuthenticationError) {
+      notifySessionExpired();
+    }
+    throw error;
+  }
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), timeout);
   const requestHeaders = new Headers(headers);
@@ -102,6 +123,7 @@ async function request(path, { method = 'GET', body, headers, timeout = DEFAULT_
     });
 
     if (response.status === 401) {
+      notifySessionExpired();
       throw new AuthenticationError();
     }
 

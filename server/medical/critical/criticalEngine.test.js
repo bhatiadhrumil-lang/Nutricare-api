@@ -120,3 +120,57 @@ test('ensures rules configurations are immutable objects', () => {
     EMERGENCY_RULES.potassium = null;
   });
 });
+
+test('hematocrit 45% is NOT critical (C-1: percent-scale rules)', () => {
+  const result = detectCriticalValues({ parameter: 'hematocrit', value: 45, status: 'NORMAL', severity: 'NORMAL' });
+  assert.equal(result.critical, false);
+  assert.equal(result.emergency, false);
+  assert.equal(result.alertLevel, 'GREEN');
+});
+
+test('hematocrit below the lower critical threshold is critical', () => {
+  const result = detectCriticalValues({ parameter: 'hematocrit', value: 15, status: 'LOW', severity: 'CRITICAL_LOW' });
+  assert.equal(result.critical, true);
+  assert.equal(result.alertLevel, 'RED');
+});
+
+test('hematocrit at the lower critical threshold boundary is critical', () => {
+  const result = detectCriticalValues({ parameter: 'hematocrit', value: 18, status: 'LOW', severity: 'SEVERE_LOW' });
+  assert.equal(result.critical, true);
+});
+
+test('hematocrit between normal and critical is NOT critical', () => {
+  for (const value of [20, 30, 50]) {
+    const result = detectCriticalValues({ parameter: 'hematocrit', value, status: 'NORMAL', severity: 'NORMAL' });
+    assert.equal(result.critical, false, `value ${value}`);
+    assert.equal(result.emergency, false, `value ${value}`);
+  }
+});
+
+test('hematocrit at the upper critical threshold boundary is critical', () => {
+  const result = detectCriticalValues({ parameter: 'hematocrit', value: 60, status: 'HIGH', severity: 'SEVERE_HIGH' });
+  assert.equal(result.critical, true);
+});
+
+test('hematocrit above the upper critical threshold is critical', () => {
+  const result = detectCriticalValues({ parameter: 'hematocrit', value: 65, status: 'HIGH', severity: 'CRITICAL_HIGH' });
+  assert.equal(result.critical, true);
+  assert.equal(result.alertLevel, 'RED');
+});
+
+test('hematocrit rules are percent-scale, never fractional L/L (C-1 guard)', async () => {
+  // The canonical hematocrit unit is '%'; thresholds must live on the same
+  // scale as normalized values (45), not as L/L fractions (0.45).
+  assert.deepEqual({ ...CRITICAL_RULES.hematocrit }, { low: 18, high: 60 });
+
+  const { CANONICAL_UNITS } = await import('../normalization/canonicalUnits.js');
+  assert.equal(CANONICAL_UNITS.hematocrit.canonicalUnit, '%');
+  assert.equal(CANONICAL_UNITS.hematocrit.conversionFactors['L/L'], 100);
+
+  // A percent-scale normal must never trip the rule, while the equivalent
+  // L/L-derived canonical value behaves identically.
+  const pct = detectCriticalValues({ parameter: 'hematocrit', value: 45, status: 'NORMAL', severity: 'NORMAL' });
+  const fromLL = detectCriticalValues({ parameter: 'hematocrit', value: 0.45 * 100, status: 'NORMAL', severity: 'NORMAL' });
+  assert.equal(pct.critical, false);
+  assert.equal(fromLL.critical, false);
+});

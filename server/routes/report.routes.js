@@ -14,7 +14,7 @@ const { MAX_FILE_SIZE_BYTES, ALLOWED_MIME_TYPES } = require('../utils/fileValida
 const { analyzeReportController } = require('../controllers/report.controller');
 const { authenticateCognitoToken } = require('../middleware/authMiddleware');
 const { validateUpload } = require('../middleware/uploadValidation');
-const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
+const { reportRateLimit } = require('../middleware/rateLimits');
 
 const router = express.Router();
 
@@ -44,21 +44,20 @@ const fileFilter = (_req, file, cb) => {
 
 const upload = multer({
   storage,
-  limits: { fileSize: MAX_FILE_SIZE_BYTES },
+  // DoS hardening: one file max, no text fields expected, bounded multipart
+  // parts and field sizes so malformed requests cannot exhaust memory/disk.
+  limits: {
+    fileSize: MAX_FILE_SIZE_BYTES,
+    files: 1,
+    fields: 5,
+    parts: 8,
+    fieldNameSize: 100,
+    fieldSize: 1024,
+  },
   fileFilter,
 });
 
-const uploadRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 20,
-  standardHeaders: 'draft-7',
-  legacyHeaders: false,
-  keyGenerator: (req) => req.user?.sub || ipKeyGenerator(req.ip),
-  handler: (_req, res) => res.status(429).json({
-    success: false,
-    message: 'Too many upload requests. Please try again later.',
-  }),
-});
+const uploadRateLimit = reportRateLimit();
 
 // ── Route ────────────────────────────────────────────────────
 router.post(

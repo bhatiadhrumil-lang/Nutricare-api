@@ -1,7 +1,9 @@
 export const CANONICAL_UNITS = {
   // CBC parameters
   'hemoglobin': { canonicalUnit: 'g/L', conversionFactors: { 'g/dL': 10, 'mg/dL': 0.01, 'g/L': 1 } },
-  'hematocrit': { canonicalUnit: '%', conversionFactors: { '%': 1, 'percent': 1 } },
+  // Canonical '%' — includes the exact L/L fraction conversion (0.45 L/L -> 45 %)
+  // so L/L inputs normalize to the same basis the critical rules compare in.
+  'hematocrit': { canonicalUnit: '%', conversionFactors: { '%': 1, 'percent': 1, 'L/L': 100 } },
   'red_blood_cell_count': { canonicalUnit: '10^12/L', conversionFactors: { '10^6/µL': 1, '10^12/L': 1 } },
   'white_blood_cell_count': { canonicalUnit: '10^9/L', conversionFactors: { '10^3/µL': 1, '10^9/L': 1 } },
   'platelet_count': { canonicalUnit: '10^9/L', conversionFactors: { '10^3/µL': 1, '10^9/L': 1 } },

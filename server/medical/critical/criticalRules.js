@@ -31,8 +31,13 @@ export const CRITICAL_RULES = Object.freeze({
   d_dimer: { high: 5.0 },
 
   // Hematology (CBC)
+  // CLINICIAN REVIEW: hematocrit thresholds are expressed in the canonical
+  // '%' unit to match normalized values (e.g. 45). They preserve the
+  // originally configured L/L-fraction semantics (0.18 L/L -> 18 %,
+  // 0.60 L/L -> 60 %, consistent with hemoglobin 60/200 g/L via Hct~=3xHb).
+  // Do not change these numbers without clinician sign-off.
   hemoglobin: { low: 60, high: 200 },
-  hematocrit: { low: 0.18, high: 0.60 },
+  hematocrit: { low: 18, high: 60 },
   platelet_count: { low: 20, high: 1000 },
   white_blood_cell_count: { low: 1.5, high: 30.0 },
 

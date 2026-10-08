@@ -64,7 +64,13 @@ async function enrichPipelineResult(pipelineResult) {
     const entry = id ? CANONICAL_UNITS[id] : null;
     const factor = entry ? entry.conversionFactors?.[unitInfo.normalizedUnit] : undefined;
     const isNumeric = typeof param.value === 'number' && Number.isFinite(param.value);
-    const canonicalValue = isNumeric && typeof factor === 'number'
+    // A canonical conversion happened only when a numeric factor applied.
+    // normalizedValue/normalizedUnit must ALWAYS form a consistent pair:
+    // converted values carry the canonical unit (e.g. 132 g/L), while
+    // unconverted values keep the report unit (e.g. 45 %). Displaying code
+    // must never pair a converted value with the original report unit.
+    const converted = isNumeric && typeof factor === 'number';
+    const canonicalValue = converted
       ? Number((param.value * factor).toPrecision(10))
       : param.value;
 
@@ -73,7 +79,7 @@ async function enrichPipelineResult(pipelineResult) {
       id,
       parameterId: id,
       normalizedValue: canonicalValue,
-      normalizedUnit: unitInfo.normalizedUnit || param.unit || null,
+      normalizedUnit: converted && entry ? entry.canonicalUnit : (unitInfo.normalizedUnit || param.unit || null),
       unitWarnings: unitInfo.warnings ?? [],
     };
   });
